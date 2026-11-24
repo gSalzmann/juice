@@ -64,16 +64,19 @@ void Config::Load() {
     barDevice = dev;
     showNumber   = GetPrivateProfileIntW(L"general", L"show_number", 1, ini.c_str()) != 0;
     jbl          = GetPrivateProfileIntW(L"general", L"jbl", 0, ini.c_str()) != 0;
+    showLast     = GetPrivateProfileIntW(L"general", L"show_last", 1, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
     kinds.clear();
     slots.clear();
     aliases.clear();
+    last.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
     for (auto& [k, v] : ReadSection(ini, L"devices")) known[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"kinds")) kinds[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"slots")) slots[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"aliases")) aliases[k] = v;
+    for (auto& [k, v] : ReadSection(ini, L"last")) last[k] = v;
 }
 
 void Config::Save() const {
@@ -85,6 +88,7 @@ void Config::Save() const {
     WritePrivateProfileStringW(L"general", L"bar_device", barDevice.c_str(), ini.c_str());
     WritePrivateProfileStringW(L"general", L"show_number", showNumber ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"jbl", jbl ? L"1" : L"0", ini.c_str());
+    WritePrivateProfileStringW(L"general", L"show_last", showLast ? L"1" : L"0", ini.c_str());
 
     std::wstring body;
     for (auto& [k, v] : hidden) if (v) { body += k + L"=1"; body.push_back(L'\0'); }
@@ -101,6 +105,7 @@ void Config::Save() const {
     writeMap(L"kinds", kinds);
     writeMap(L"slots", slots);
     writeMap(L"aliases", aliases);
+    writeMap(L"last", last);
 }
 
 bool AutostartEnabled(const wchar_t* name) {

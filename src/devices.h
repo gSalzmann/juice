@@ -22,6 +22,7 @@ struct Device {
     bool      asleep = false;     // last scan got no answer (value shown is the last known one)
     ULONGLONG lastGood = 0;       // tick of the last successful reading
     bool      lowNotified = false;
+    bool      wasPresent = false;  // presence at the previous update (to save the last level when it leaves)
 
     const std::wstring& Label() const { return name.empty() ? key : name; }
 };
@@ -50,6 +51,12 @@ public:
     Kind KnownKind(const std::wstring& key) const;   // kind remembered in the ini (Other if never seen)
     // Drops a device from the list and the ini; it comes back only when it connects again.
     void Forget(const std::wstring& key);
+    // Last level read from a device that is no longer connected (kept in the ini across restarts).
+    // Returns false if there is none. `unixTime` is when it was read.
+    bool LastKnown(const std::wstring& key, int& percent, long long& unixTime) const;
+    // Copies the current readings into the ini map; returns true when it should be saved.
+    bool RecordLast();
+    bool keepLast = true;   // false in demo mode, so fake levels never reach the ini
 
     // Returns devices that crossed the low-battery threshold since the last call (one per discharge).
     std::vector<Device*> TakeLowBatteryAlerts();

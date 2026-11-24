@@ -82,11 +82,19 @@ int S(int v) { return MulDiv(v, Dpi(), 96); }
 
 COLORREF Cref(uint32_t rgb) { return RGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF); }
 
-std::wstring Ago(ULONGLONG tick) {
-    ULONGLONG min = (GetTickCount64() - tick) / 60000;
+std::wstring AgoMinutes(long long min) {
     if (min < 1) return T(L"agora", L"just now");
-    std::wstring n = min < 60 ? std::to_wstring(min) + L" min" : std::to_wstring(min / 60) + L" h";
+    std::wstring n = min < 60        ? std::to_wstring(min) + L" min"
+                   : min < 48 * 60   ? std::to_wstring(min / 60) + L" h"
+                   : std::to_wstring(min / (24 * 60)) + (g_en ? L" days" : L" dias");
     return g_en ? n + L" ago" : L"há " + n;
+}
+std::wstring Ago(ULONGLONG tick) { return AgoMinutes((long long)((GetTickCount64() - tick) / 60000)); }
+
+long long UnixNow() {
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    return (long long)((((ULONGLONG)ft.dwHighDateTime << 32) | ft.dwLowDateTime) / 10000000ull) - 11644473600ll;
 }
 
 // Rows displayed in the window: present devices first, then known but disconnected ones.
@@ -428,6 +436,10 @@ void Paint(HDC target) {
         const Device* d = r.dev;
         const bool online = RowOnline(r);
         const uint32_t textColor = online ? th.text : th.sub;
+        // Disconnected: optionally keep showing the last level read, greyed out.
+        int lastPct = -1;
+        long long lastTime = 0;
+        const bool hasLast = !online && g_cfg.showLast && g_dm.LastKnown(r.key, lastPct, lastTime);
 
         // Illustration (dimmed when offline by drawing a translucent background veil over it).
         const int ix = S(PAD), iy = y + (S(ROW_H) - S(ILL)) / 2;
@@ -451,7 +463,7 @@ void Paint(HDC target) {
             DrawTextAt(dc, L"\xE711", xr, DT_CENTER | DT_VCENTER, fGlyph, hot ? 0xFFFFFF : th.text);
             pctSize.cx = right - xr.left;
         } else {
-            std::wstring pct = online ? std::to_wstring(d->percent) + L"%" : L"—";
+            std::wstring pct = online ? std::to_wstring(d->percent) + L"%" : hasLast ? std::to_wstring(lastPct) + L"%" : L"—";
             DrawTextAt(dc, pct, RECT{ tx, y + S(10), right, y + S(10) + lineH }, DT_RIGHT | DT_VCENTER, fPct, textColor);
             HGDIOBJ o = SelectObject(dc, fPct);
             GetTextExtentPoint32W(dc, pct.c_str(), (int)pct.size(), &pctSize);
@@ -469,11 +481,16 @@ void Paint(HDC target) {
             const float lw = std::max(fh, fw * d->percent / 100.0f);
             bp.Fill([=](float x, float yy) { return sdf::Box(x, yy, lw / 2, fh / 2, lw / 2, fh / 2, rr); },
                     Hex(LevelColor(d->percent, d->charging)));
+        } else if (hasLast) {
+            const float lw = std::max(fh, fw * lastPct / 100.0f);
+            bp.Fill([=](float x, float yy) { return sdf::Box(x, yy, lw / 2, fh / 2, lw / 2, fh / 2, rr); },
+                    Hex(th.sub, 0.45f));
         }
 
         // Status line
         std::wstring status;
-        if (!online)            status = T(L"Desconectado", L"Disconnected");
+        if (hasLast)            status = T(L"Desconectado · leitura ", L"Disconnected · read ") + AgoMinutes((UnixNow() - lastTime) / 60);
+        else if (!online)       status = T(L"Desconectado", L"Disconnected");
         else if (d->charging)   status = T(L"Carregando", L"Charging");
         else if (d->asleep)     status = T(L"Em repouso · leitura ", L"Asleep · read ") + Ago(d->lastGood);
         else                    status = T(L"Atualizado ", L"Updated ") + Ago(d->lastGood);
@@ -607,6 +624,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray icon number by battery level");
             SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
             SetDlgItemTextW(dlg, IDC_JBL, L"Read the battery of JBL speakers (Bluetooth LE)");
+            SetDlgItemTextW(dlg, IDC_SHOWLAST, L"Show the last level of disconnected devices");
             SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
         }
         FillDeviceControls(dlg, *st);
@@ -619,6 +637,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_SHOWLAST, g_cfg.showLast ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         return TRUE;
     case WM_COMMAND:
@@ -644,6 +663,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             const bool jblWasOn = g_cfg.jbl;
             g_cfg.jbl = IsDlgButtonChecked(dlg, IDC_JBL) == BST_CHECKED;
+            g_cfg.showLast = IsDlgButtonChecked(dlg, IDC_SHOWLAST) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
             // Rewritten when on, so older entries (--minimized) pick up the current arguments.
             if (autostart || AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart, L"--tray");
@@ -839,7 +859,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RefreshAll();
         return 0;
     }
+    case WM_ENDSESSION:   // Windows shutting down: keep the time of the last readings
+        if (wp && g_dm.keepLast) { g_dm.RecordLast(); g_cfg.Save(); }
+        return 0;
     case WM_DESTROY:
+        if (g_dm.keepLast) { g_dm.RecordLast(); g_cfg.Save(); }   // keeps the time of the last readings
         RemoveNotifyIcon();
         RemoveTray();
         PostQuitMessage(0);
@@ -856,6 +880,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
         long v = wcstol(demo + 6, &end, 10);
         g_demoPercent = end == demo + 6 ? 50 : (int)std::min(100L, std::max(0L, v));
         g_demoCharging = end && (*end == L'c' || *end == L'C');
+        g_dm.keepLast = false;
     }
 
     // The demo runs alongside the real instance, with its own taskbar button.

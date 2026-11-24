@@ -79,6 +79,7 @@ bool DeviceManager::Adopt(const std::wstring& from, const std::wstring& to) {
     move(cfg_.known);
     move(cfg_.kinds);
     move(cfg_.hidden);
+    move(cfg_.last);
     if (cfg_.barDevice == from) { cfg_.barDevice = to; changed = true; }
     devices_.erase(std::remove_if(devices_.begin(), devices_.end(),
                                   [&](const Device& d) { return d.key == from; }), devices_.end());
@@ -89,6 +90,7 @@ void DeviceManager::Forget(const std::wstring& key) {
     cfg_.known.erase(key);
     cfg_.kinds.erase(key);
     cfg_.hidden.erase(key);
+    cfg_.last.erase(key);
     if (cfg_.barDevice == key) cfg_.barDevice.clear();
     for (auto* m : { &cfg_.slots, &cfg_.aliases })
         for (auto it = m->begin(); it != m->end();)
@@ -96,6 +98,41 @@ void DeviceManager::Forget(const std::wstring& key) {
     devices_.erase(std::remove_if(devices_.begin(), devices_.end(),
                                   [&](const Device& d) { return d.key == key; }), devices_.end());
     cfg_.Save();
+}
+
+long long UnixNow() {
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    return (long long)((((ULONGLONG)ft.dwHighDateTime << 32) | ft.dwLowDateTime) / 10000000ull) - 11644473600ll;
+}
+
+bool DeviceManager::RecordLast() {
+    if (!keepLast) return false;
+    bool save = false;
+    const ULONGLONG tick = GetTickCount64();
+    for (auto& d : devices_) {
+        if (d.present && d.percent >= 0 && d.lastGood) {
+            const long long when = UnixNow() - (long long)((tick - d.lastGood) / 1000);
+            std::wstring& e = cfg_.last[d.key];
+            // Saved on every level change; the time alone only goes to disk when the device leaves.
+            if (e.empty() || _wtoi(e.c_str()) != d.percent) save = true;
+            e = std::to_wstring(d.percent) + L"," + std::to_wstring(when);
+        }
+        if (d.wasPresent && !d.present) save = true;
+        d.wasPresent = d.present;
+    }
+    return save;
+}
+
+bool DeviceManager::LastKnown(const std::wstring& key, int& percent, long long& unixTime) const {
+    auto it = cfg_.last.find(key);
+    if (it == cfg_.last.end() || it->second.empty()) return false;
+    const wchar_t* s = it->second.c_str();
+    const wchar_t* comma = wcschr(s, L',');
+    if (!comma) return false;
+    percent = _wtoi(s);
+    unixTime = _wtoi64(comma + 1);
+    return percent >= 0 && percent <= 100;
 }
 
 Kind DeviceManager::KnownKind(const std::wstring& key) const {
@@ -237,8 +274,9 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         if (!found) d.present = false;
     }
 
-    if (knownChanged) cfg_.Save();
     MergeXbox();
+    if (RecordLast()) knownChanged = true;
+    if (knownChanged) cfg_.Save();
     if (rescan_) { rescan_ = false; StartScan(notify_, msg_); }
 }
 
@@ -258,6 +296,7 @@ void DeviceManager::MergeXbox() {
         if (cfg_.known[d.key] != d.name) { cfg_.known[d.key] = d.name; changed = true; }
         if (cfg_.kinds[d.key] != L"gamepad") { cfg_.kinds[d.key] = L"gamepad"; changed = true; }
     }
+    if (RecordLast()) changed = true;
     if (changed) cfg_.Save();
 }
 
