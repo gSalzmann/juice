@@ -51,6 +51,7 @@ void Config::Load() {
     intervalMin  = Clamp(GetPrivateProfileIntW(L"general", L"interval_min", 5, ini.c_str()), 1, 60);
     lowWarning   = GetPrivateProfileIntW(L"general", L"low_warning", 1, ini.c_str()) != 0;
     lowThreshold = Clamp(GetPrivateProfileIntW(L"general", L"low_threshold", 15, ini.c_str()), 5, 50);
+    colorLevels  = GetPrivateProfileIntW(L"general", L"color_levels", 0, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
@@ -62,6 +63,7 @@ void Config::Save() const {
     WritePrivateProfileStringW(L"general", L"interval_min", std::to_wstring(intervalMin).c_str(), ini.c_str());
     WritePrivateProfileStringW(L"general", L"low_warning", lowWarning ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"low_threshold", std::to_wstring(lowThreshold).c_str(), ini.c_str());
+    WritePrivateProfileStringW(L"general", L"color_levels", colorLevels ? L"1" : L"0", ini.c_str());
 
     std::wstring body;
     for (auto& [k, v] : hidden) if (v) { body += k + L"=1"; body.push_back(L'\0'); }

@@ -160,7 +160,7 @@ void UpdateIcons(bool forceRedraw = false) {
         }
         if (forceRedraw || !d.hIcon || d.drawnPercent != d.percent || d.drawnCharging != d.charging) {
             if (d.hIcon) DestroyIcon(d.hIcon);
-            d.hIcon = MakeTrayIcon(d.kind, d.percent, d.charging, g_cfg.lowThreshold);
+            d.hIcon = MakeTrayIcon(d.kind, d.percent, d.charging, g_cfg.colorLevels);
             d.drawnPercent = d.percent;
             d.drawnCharging = d.charging;
         }
@@ -181,7 +181,7 @@ void UpdateIcons(bool forceRedraw = false) {
     } else {
         if (forceRedraw || !g_appIcon) {
             if (g_appIcon) DestroyIcon(g_appIcon);
-            g_appIcon = MakeTrayIcon(Kind::App, -1, false, 0);
+            g_appIcon = MakeTrayIcon(Kind::App, -1, false, false);
         }
         ShowOrUpdate(APP_ICON_ID, g_appIcon, g_scanning ? L"Wireless Tray — procurando dispositivos..."
                                                         : L"Wireless Tray — nenhum dispositivo", g_appIconShown);
@@ -320,6 +320,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETPOS32, 0, g_cfg.lowThreshold);
         CheckDlgButton(dlg, IDC_LOWWARN, g_cfg.lowWarning ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled() ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         SetForegroundWindow(dlg);
         return TRUE;
@@ -342,6 +343,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             v = (int)GetDlgItemInt(dlg, IDC_THRESHOLD, &ok, FALSE);
             if (ok) g_cfg.lowThreshold = v < 5 ? 5 : v > 50 ? 50 : v;
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
+            g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
             if (autostart != AutostartEnabled()) SetAutostart(autostart);
             g_cfg.Save();

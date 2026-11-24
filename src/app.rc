@@ -5,7 +5,7 @@
 
 1 24 "app.manifest"
 
-IDD_SETTINGS DIALOGEX 0, 0, 260, 214
+IDD_SETTINGS DIALOGEX 0, 0, 260, 244
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_TOPMOST
 CAPTION "Wireless Tray — Configurações"
@@ -24,8 +24,11 @@ BEGIN
     CONTROL         "", IDC_THRESHOLD_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
     LTEXT           "%", -1, 188, 138, 10, 10
 
-    AUTOCHECKBOX    "Iniciar com o Windows", IDC_AUTOSTART, 10, 158, 140, 10
+    AUTOCHECKBOX    "Colorir o número conforme o nível", IDC_COLORLEVELS, 10, 158, 240, 10
+    LTEXT           "azul ≥ 30%  ·  laranja 15–29%  ·  vermelho < 15%  ·  verde carregando", -1, 22, 170, 228, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 146, 190, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 190, 50, 14
+    AUTOCHECKBOX    "Iniciar com o Windows", IDC_AUTOSTART, 10, 188, 140, 10
+
+    DEFPUSHBUTTON   "OK", IDOK, 146, 220, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 220, 50, 14
 END

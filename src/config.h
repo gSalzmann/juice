@@ -7,6 +7,7 @@ struct Config {
     int  intervalMin  = 5;      // polling interval in minutes
     bool lowWarning   = true;
     int  lowThreshold = 15;     // percent
+    bool colorLevels  = false;  // blue / orange / red number by battery level
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
 

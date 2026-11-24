@@ -124,16 +124,18 @@ bool TaskbarIsLight() {
     return v != 0;
 }
 
-HICON MakeTrayIcon(Kind kind, int percent, bool charging, int lowThreshold) {
+HICON MakeTrayIcon(Kind kind, int percent, bool charging, bool colorLevels) {
     const int size = GetSystemMetrics(SM_CXSMICON);
     const bool light = TaskbarIsLight();
 
     COLORREF fg = light ? RGB(0x1A, 0x1A, 0x1A) : RGB(0xFF, 0xFF, 0xFF);
     COLORREF num = fg;
     if (percent >= 0) {
-        if (charging)                     num = light ? RGB(0x10, 0x7C, 0x10) : RGB(0x6C, 0xCB, 0x5F);
-        else if (percent <= lowThreshold) num = light ? RGB(0xC4, 0x2B, 0x1C) : RGB(0xFF, 0x63, 0x63);
-        else if (percent < 30)            num = light ? RGB(0x9D, 0x5D, 0x00) : RGB(0xFF, 0xC8, 0x3D);
+        if (charging)         num = light ? RGB(0x10, 0x7C, 0x10) : RGB(0x6C, 0xCB, 0x5F);  // green
+        else if (percent < 15) num = light ? RGB(0xC4, 0x2B, 0x1C) : RGB(0xFF, 0x63, 0x63);  // red
+        else if (colorLevels)
+            num = percent < 30 ? (light ? RGB(0xC2, 0x5E, 0x00) : RGB(0xFF, 0x9F, 0x40))     // orange
+                               : (light ? RGB(0x00, 0x5F, 0xB8) : RGB(0x4C, 0xC2, 0xFF));    // blue
     }
 
     std::vector<uint8_t> shape = RenderShape(kind, size);

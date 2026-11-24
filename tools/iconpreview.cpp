@@ -8,7 +8,7 @@ int wmain(int argc, wchar_t** argv) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     const int s = GetSystemMetrics(SM_CXSMICON), scale = 8, pad = 4;
     struct Sample { Kind k; int p; bool c; } items[] = {
-        {Kind::Mouse, 97, false},   {Kind::Headset, 37, false}, {Kind::Headset, 100, false},
+        {Kind::Mouse, 97, false},   {Kind::Headset, 37, false}, {Kind::Headset, 22, false},
         {Kind::Keyboard, 12, false}, {Kind::Mouse, 55, true},   {Kind::App, -1, false}};
     const int n = sizeof(items) / sizeof(items[0]);
     const int W = n * (s + pad), H = s + pad;
@@ -21,7 +21,7 @@ int wmain(int argc, wchar_t** argv) {
     HBRUSH bg = CreateSolidBrush(TaskbarIsLight() ? RGB(243, 243, 243) : RGB(32, 32, 32));
     FillRect(dcSrc, &r, bg);
     for (int i = 0; i < n; ++i) {
-        HICON ic = MakeTrayIcon(items[i].k, items[i].p, items[i].c, 15);
+        HICON ic = MakeTrayIcon(items[i].k, items[i].p, items[i].c, true);
         DrawIconEx(dcSrc, i * (s + pad) + pad / 2, pad / 2, ic, s, s, 0, nullptr, DI_NORMAL);
         DestroyIcon(ic);
     }

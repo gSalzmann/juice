@@ -4,7 +4,8 @@ Programa super leve (Win32/C++ puro, sem runtime) que mostra na bandeja do Windo
 de mouses, teclados e fones sem fio — sem depender de software do fabricante (G HUB etc.).
 
 - Um ícone por dispositivo: símbolo do tipo (mouse/fone/teclado) + percentual
-- Cores: amarelo abaixo de 30%, vermelho abaixo do limite de aviso, verde carregando
+- Cor do número: verde carregando, vermelho abaixo de 15%; opcionalmente (configurações)
+  azul ≥ 30% e laranja entre 15% e 29%, como a bateria de notebook no Windows
 - Aviso de bateria baixa (notificação do Windows)
 - Tela de configuração: dispositivos visíveis, intervalo de atualização, limite de aviso, iniciar com o Windows
 - ~0,5 MB de working set, executável de ~200 KB

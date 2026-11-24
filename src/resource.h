@@ -7,3 +7,4 @@
 #define IDC_LOWWARN         1005
 #define IDC_THRESHOLD       1006
 #define IDC_THRESHOLD_SPIN  1007
+#define IDC_COLORLEVELS     1008
