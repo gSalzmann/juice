@@ -2,8 +2,41 @@
 #include <windows.h>
 #include <commctrl.h>
 #include "resource.h"
+#include "version.h"
+
+// Program icon (Explorer, Start menu, shortcuts): the juice box from the logo. Lowest ID wins.
+1 ICON "juice.ico"
 
 1 24 "app.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     JUICE_VERSION_MAJOR, JUICE_VERSION_MINOR, JUICE_VERSION_PATCH, 0
+PRODUCTVERSION  JUICE_VERSION_MAJOR, JUICE_VERSION_MINOR, JUICE_VERSION_PATCH, 0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Gustavo Salzmann"
+            VALUE "FileDescription",  "Juice - battery of wireless devices on the taskbar"
+            VALUE "FileVersion",      JUICE_VERSION_STR
+            VALUE "InternalName",     "Juice"
+            VALUE "LegalCopyright",   "Copyright (c) 2026 Gustavo Salzmann. MIT License."
+            VALUE "OriginalFilename", "Juice.exe"
+            VALUE "ProductName",      "Juice"
+            VALUE "ProductVersion",   JUICE_VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
 
 IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 318
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 6 190 190">
+  <defs>
+    <linearGradient id="juice" gradientUnits="userSpaceOnUse" x1="0" y1="-14" x2="0" y2="66">
+      <stop offset="0" stop-color="#FFC93C"/><stop offset="0.55" stop-color="#FF9A1F"/><stop offset="1" stop-color="#F4600C"/>
+    </linearGradient>
+    <path id="wave" d="M-144 0 q18 -7 36 0 t36 0 t36 0 t36 0 t36 0 t36 0 t36 0 t36 0 t36 0 t36 0 V 240 H -144 Z"/>
+    <clipPath id="cell"><rect x="70" y="90" width="134" height="82" rx="10"/></clipPath>
+  </defs>
+  <path d="M150 84 L168 26 L206 18" fill="none" stroke="#3E444D" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M150 84 L168 26 L206 18" fill="none" stroke="#E8EAED" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M150 84 L168 26 L206 18" fill="none" stroke="#FF5A5F" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 10"/>
+  <rect x="216" y="110" width="16" height="42" rx="5" fill="#E8EAED" stroke="#3E444D" stroke-width="5"/>
+  <rect x="62" y="82" width="150" height="98" rx="18" fill="none" stroke="#3E444D" stroke-width="15"/>
+  <rect x="62" y="82" width="150" height="98" rx="18" fill="#101218" stroke="#E8EAED" stroke-width="10"/>
+  <g clip-path="url(#cell)">
+    <use href="#wave" fill="url(#juice)" transform="translate(70 110)"/>
+    <use href="#wave" fill="#FFC93C" opacity="0.35" transform="translate(52 107)"/>
+  </g>
+</svg>
