@@ -38,7 +38,7 @@ BEGIN
     END
 END
 
-IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 346
+IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 360
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -55,21 +55,22 @@ BEGIN
     LTEXT           "ÍCONES", IDC_SEC_ICONS, 12, 164, 236, 9
     AUTOCHECKBOX    "Percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 12, 182, 236, 10
     AUTOCHECKBOX    "Colorir o número da bandeja pelo nível", IDC_COLORLEVELS, 12, 196, 236, 10
+    AUTOCHECKBOX    "Um ícone na bandeja para cada dispositivo", IDC_TRAYPERDEVICE, 12, 210, 236, 10
 
-    LTEXT           "ATUALIZAÇÃO E AVISOS", IDC_SEC_REFRESH, 12, 218, 236, 9
-    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 12, 238, 150, 9
-    EDITTEXT        IDC_INTERVAL, 190, 236, 34, 12, ES_NUMBER | ES_RIGHT
+    LTEXT           "ATUALIZAÇÃO E AVISOS", IDC_SEC_REFRESH, 12, 232, 236, 9
+    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 12, 252, 150, 9
+    EDITTEXT        IDC_INTERVAL, 190, 250, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_INTERVAL_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "min", IDC_LBL_MINUTES, 228, 238, 20, 9
-    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 12, 254, 176, 10
-    EDITTEXT        IDC_THRESHOLD, 190, 253, 34, 12, ES_NUMBER | ES_RIGHT
+    LTEXT           "min", IDC_LBL_MINUTES, 228, 252, 20, 9
+    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 12, 268, 176, 10
+    EDITTEXT        IDC_THRESHOLD, 190, 267, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_THRESHOLD_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "%", IDC_LBL_PERCENT, 228, 255, 20, 9
-    AUTOCHECKBOX    "Avisar quando terminar de carregar", IDC_FULLWARN, 12, 270, 236, 10
+    LTEXT           "%", IDC_LBL_PERCENT, 228, 269, 20, 9
+    AUTOCHECKBOX    "Avisar quando terminar de carregar", IDC_FULLWARN, 12, 284, 236, 10
 
-    LTEXT           "GERAL", IDC_SEC_GENERAL, 12, 290, 236, 9
-    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 12, 308, 236, 10
+    LTEXT           "GERAL", IDC_SEC_GENERAL, 12, 304, 236, 9
+    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 12, 322, 236, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 144, 326, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 198, 326, 50, 14
+    DEFPUSHBUTTON   "OK", IDOK, 144, 340, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 198, 340, 50, 14
 END

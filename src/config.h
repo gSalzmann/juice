@@ -11,6 +11,7 @@ struct Config {
     int  lowThreshold = 15;     // percent
     bool fullWarning  = true;   // notify when a charging device reaches 100%
     bool colorLevels  = false;  // tray: blue / orange / red number by battery level
+    bool trayPerDevice = false; // tray: one icon per connected device instead of one
     std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery, "*" = rotate)
     bool showNumber   = true;   // taskbar app: % badge on the button icon
     bool showLast     = true;   // disconnected devices keep showing their last level (greyed out)

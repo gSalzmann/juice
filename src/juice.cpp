@@ -11,6 +11,7 @@
 #include <vssym32.h>
 #include <dbt.h>
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
@@ -191,9 +192,13 @@ void ApplyDemo() {
 // (the device on the taskbar, drawn like the classic tray icons). Right-click for the menu.
 
 constexpr UINT WM_APP_TRAY = WM_APP + 3, WM_APP_SHOW = WM_APP + 4, WM_APP_PADS = WM_APP + 5;
-constexpr UINT TRAY_ID = 2;
-bool  g_inTray = false, g_trayShown = false;
-HICON g_trayIcon = nullptr;
+constexpr UINT TRAY_ID = 2;   // the single icon; per-device icons get ids from 10 up
+bool  g_inTray = false;
+
+// Icons currently in the notification area (one, or one per device with the option on).
+struct TrayIcon { UINT id; HICON icon; };
+std::vector<TrayIcon> g_tray;
+std::map<std::wstring, UINT> g_trayIds;   // device key -> its icon id (stable while Juice runs)
 
 std::wstring TrayTip() {
     std::wstring tip;
@@ -207,42 +212,77 @@ std::wstring TrayTip() {
     return tip;
 }
 
-void FillTrayNid(NOTIFYICONDATAW& nid) {
+void FillTrayNid(NOTIFYICONDATAW& nid, UINT id) {
     nid = NOTIFYICONDATAW{ sizeof(nid) };
     nid.hWnd = g_hwnd;
-    nid.uID = TRAY_ID;
+    nid.uID = id;
     nid.uCallbackMessage = WM_APP_TRAY;
+}
+
+void RemoveTrayIcon(size_t i) {
+    NOTIFYICONDATAW nid;
+    FillTrayNid(nid, g_tray[i].id);
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+    if (g_tray[i].icon) DestroyIcon(g_tray[i].icon);
+    g_tray.erase(g_tray.begin() + (ptrdiff_t)i);
+}
+
+// Adds or updates one icon.
+void SetTrayIcon(UINT id, HICON icon, const std::wstring& tip) {
+    NOTIFYICONDATAW nid;
+    FillTrayNid(nid, id);
+    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
+    nid.hIcon = icon;
+    wcsncpy_s(nid.szTip, tip.c_str(), _TRUNCATE);
+    for (auto& t : g_tray)
+        if (t.id == id) {
+            Shell_NotifyIconW(NIM_MODIFY, &nid);
+            if (t.icon) DestroyIcon(t.icon);
+            t.icon = icon;
+            return;
+        }
+    if (Shell_NotifyIconW(NIM_ADD, &nid)) {
+        nid.uVersion = NOTIFYICON_VERSION_4;
+        Shell_NotifyIconW(NIM_SETVERSION, &nid);
+        g_tray.push_back({ id, icon });
+    } else {
+        DestroyIcon(icon);
+    }
 }
 
 void UpdateTray() {
     if (!g_inTray) return;
-    const Device* d = SelectedDevice();
-    HICON icon = d ? MakeTrayIcon(d->kind, d->percent, d->charging, g_cfg.colorLevels)
-                   : MakeTrayIcon(Kind::App, -1, false, false);
-    NOTIFYICONDATAW nid;
-    FillTrayNid(nid);
-    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
-    nid.hIcon = icon;
-    wcsncpy_s(nid.szTip, TrayTip().c_str(), _TRUNCATE);
-    if (!g_trayShown) {
-        if (Shell_NotifyIconW(NIM_ADD, &nid)) {
-            nid.uVersion = NOTIFYICON_VERSION_4;
-            Shell_NotifyIconW(NIM_SETVERSION, &nid);
-            g_trayShown = true;
+    // Wanted icons: one per connected device (option), or the single icon with the taskbar device.
+    std::vector<UINT> wanted;
+    if (g_cfg.trayPerDevice)
+        for (auto& d : g_dm.Devices()) {
+            if (!d.present || d.percent < 0 || g_dm.IsHidden(d.key)) continue;
+            UINT& id = g_trayIds[d.key];
+            if (!id) id = 10 + (UINT)g_trayIds.size();
+            std::wstring tip = d.Label() + L": " + std::to_wstring(d.percent) + L"%" +
+                               (d.charging ? T(L" (carregando)", L" (charging)") : L"");
+            SetTrayIcon(id, MakeTrayIcon(d.kind, d.percent, d.charging, g_cfg.colorLevels), tip);
+            wanted.push_back(id);
         }
-    } else {
-        Shell_NotifyIconW(NIM_MODIFY, &nid);
+    if (wanted.empty()) {
+        const Device* d = SelectedDevice();
+        SetTrayIcon(TRAY_ID, d ? MakeTrayIcon(d->kind, d->percent, d->charging, g_cfg.colorLevels)
+                               : MakeTrayIcon(Kind::App, -1, false, false), TrayTip());
+        wanted.push_back(TRAY_ID);
     }
-    if (g_trayIcon) DestroyIcon(g_trayIcon);
-    g_trayIcon = icon;
+    for (size_t i = g_tray.size(); i-- > 0;)
+        if (std::find(wanted.begin(), wanted.end(), g_tray[i].id) == wanted.end()) RemoveTrayIcon(i);
 }
 
 void RemoveTray() {
-    if (!g_trayShown) return;
-    NOTIFYICONDATAW nid;
-    FillTrayNid(nid);
-    Shell_NotifyIconW(NIM_DELETE, &nid);
-    g_trayShown = false;
+    while (!g_tray.empty()) RemoveTrayIcon(g_tray.size() - 1);
+}
+
+// Icon to attach a balloon to: the device's own icon if it has one, else any icon of ours.
+UINT TrayIconFor(const std::wstring& key) {
+    auto it = g_trayIds.find(key);
+    for (auto& t : g_tray) if (it != g_trayIds.end() && t.id == it->second) return t.id;
+    return g_tray.empty() ? 0 : g_tray.front().id;
 }
 
 void GoToTray() {
@@ -320,9 +360,9 @@ void Notify(const Device& d, bool full) {
     const DWORD flags = (full ? NIIF_INFO : NIIF_WARNING) | NIIF_RESPECT_QUIET_TIME;
     std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%" +
                        (full ? T(L" — pode desconectar do carregador", L" — you can unplug it") : L"");
-    if (g_trayShown) {   // already in the tray: use that icon for the balloon
+    if (UINT id = TrayIconFor(d.key)) {   // already in the tray: use that icon for the balloon
         NOTIFYICONDATAW nid;
-        FillTrayNid(nid);
+        FillTrayNid(nid, id);
         nid.uFlags = NIF_INFO;
         nid.dwInfoFlags = flags;
         wcscpy_s(nid.szInfoTitle, title);
@@ -639,7 +679,7 @@ struct DlgLook {
 DlgLook g_look;
 
 const int SECTION_IDS[] = { IDC_SEC_DEVICES, IDC_SEC_ICONS, IDC_SEC_REFRESH, IDC_SEC_GENERAL };
-const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_APPLE, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_FULLWARN, IDC_AUTOSTART };
+const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_APPLE, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_TRAYPERDEVICE, IDC_LOWWARN, IDC_FULLWARN, IDC_AUTOSTART };
 
 void ApplyDialogLook(HWND dlg) {
     g_look.dark = !AppsUseLightTheme();
@@ -731,6 +771,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             SetDlgItemTextW(dlg, IDC_SEC_ICONS, L"ICONS");
             SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Percentage on the taskbar icon");
             SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray number by level");
+            SetDlgItemTextW(dlg, IDC_TRAYPERDEVICE, L"One tray icon per device");
             SetDlgItemTextW(dlg, IDC_SEC_REFRESH, L"REFRESH AND WARNINGS");
             SetDlgItemTextW(dlg, IDC_LBL_EVERY, L"Refresh every");
             SetDlgItemTextW(dlg, IDC_LOWWARN, L"Warn when the battery drops below");
@@ -752,6 +793,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_APPLE, g_cfg.apple ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_FULLWARN, g_cfg.fullWarning ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_TRAYPERDEVICE, g_cfg.trayPerDevice ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_SHOWLAST, g_cfg.showLast ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD_SPIN), g_cfg.lowWarning);
@@ -819,6 +861,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             if (ok) g_cfg.lowThreshold = v < 5 ? 5 : v > 50 ? 50 : v;
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
             g_cfg.fullWarning = IsDlgButtonChecked(dlg, IDC_FULLWARN) == BST_CHECKED;
+            g_cfg.trayPerDevice = IsDlgButtonChecked(dlg, IDC_TRAYPERDEVICE) == BST_CHECKED;
             g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             const bool jblWasOn = g_cfg.jbl, appleWasOn = g_cfg.apple;
@@ -888,7 +931,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (msg == g_msgTaskbarCreated && msg != 0) {   // Explorer restarted
         g_notifyShown = false;
-        g_trayShown = false;
+        for (auto& t : g_tray) if (t.icon) DestroyIcon(t.icon);   // the old icons are gone with Explorer
+        g_tray.clear();
         UpdateTray();
         return 0;
     }
