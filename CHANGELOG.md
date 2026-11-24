@@ -4,6 +4,23 @@
 
 All notable changes to Juice. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-11-24
+
+### Added
+- **PlayStation controllers** over Bluetooth: DualSense, DualSense Edge and DualShock 4 *(not tested yet)*.
+- **AirPods and Beats** from their Bluetooth LE advertisements: one row with the earbud that runs out first,
+  each earbud and the case in the status (optional, off by default; *not tested yet*).
+- **Time left estimate** ("~2 days left") from how fast the level drops since the last charge.
+- **Full charge notification** when a charging device reaches 100% (on by default).
+- **One tray icon per device** (optional).
+- **Portable mode**: a `juice.ini` next to `Juice.exe` is used instead of `%APPDATA%\Juice`.
+- **Program icon** (the juice box) and version info in `Juice.exe`.
+- Release builds by **GitHub Actions**, with `Juice.exe.sha256`; **winget** manifests.
+
+### Changed
+- **Settings** reorganized in sections (Devices, Icons, Refresh and warnings, General), following the Windows
+  light/dark theme; the device list only has the names.
+
 ## [1.1.0] — 2026-11-24
 
 ### Added
@@ -45,6 +62,23 @@ device, English and Portuguese.
 
 Todas as mudanças relevantes do Juice. As versões seguem o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] — 24/11/2026
+
+### Novidades
+- **Controles PlayStation** pelo Bluetooth: DualSense, DualSense Edge e DualShock 4 *(ainda não testado)*.
+- **AirPods e Beats** pelos anúncios Bluetooth LE: uma linha com o fone que acaba primeiro, cada fone e o estojo
+  no status (opcional, desligado por padrão; *ainda não testado*).
+- **Estimativa de duração** ("~2 dias restantes") pela velocidade com que o nível cai desde a última carga.
+- **Aviso de carga completa** quando um dispositivo carregando chega a 100% (ligado por padrão).
+- **Um ícone na bandeja por dispositivo** (opcional).
+- **Modo portátil**: um `juice.ini` ao lado do `Juice.exe` é usado no lugar de `%APPDATA%\Juice`.
+- **Ícone do programa** (a caixinha de suco) e informações de versão no `Juice.exe`.
+- Compilação das releases pelo **GitHub Actions**, com `Juice.exe.sha256`; manifestos do **winget**.
+
+### Mudanças
+- **Configurações** reorganizadas em seções (Dispositivos, Ícones, Atualização e avisos, Geral), seguindo o tema
+  claro/escuro do Windows; a lista de dispositivos tem só os nomes.
+
 ## [1.1.0] — 24/11/2026
 
 ### Novidades
@@ -81,5 +115,6 @@ Primeira versão: bateria de dispositivos Logitech HID++ e fones Bluetooth no bo
 de progresso e selo), janela compacta, ícone na bandeja ao fechar, aviso de bateria baixa, dispositivo de menor
 bateria / fixo / alternando, inglês e português.
 
+[1.2.0]: https://github.com/gSalzmann/juice/releases/tag/v1.2.0
 [1.1.0]: https://github.com/gSalzmann/juice/releases/tag/v1.1.0
 [1.0.0]: https://github.com/gSalzmann/juice/releases/tag/v1.0.0
