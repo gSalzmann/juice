@@ -1,5 +1,4 @@
 #pragma once
-#define IDD_SETTINGS        101
 #define IDD_BAR_SETTINGS    102
 #define IDC_BAR_DEVICE      1009
 #define IDC_DEVICES         1001

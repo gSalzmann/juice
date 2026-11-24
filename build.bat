@@ -13,12 +13,7 @@ set CFLAGS=/nologo /utf-8 /std:c++17 /O1 /Os /GL /Gy /MT /W4 /EHsc /DUNICODE /D_
 set LFLAGS=/LTCG /OPT:REF /OPT:ICF /MANIFEST:NO
 set CORE=src\hidpp.cpp src\btbattery.cpp src\config.cpp src\devices.cpp src\icon.cpp
 
-rem Tray app
-rc /nologo /c65001 /fo build\obj\app.res src\app.rc || exit /b 1
-cl %CFLAGS% src\main.cpp %CORE% build\obj\app.res ^
-   /Fe:build\WirelessTray.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
-
-rem Taskbar app
+rem App (taskbar button + tray when closed)
 rc /nologo /c65001 /fo build\obj\bar.res src\bar.rc || exit /b 1
 cl %CFLAGS% src\bar.cpp src\illust.cpp %CORE% build\obj\bar.res ^
    /Fe:build\WirelessBar.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
