@@ -1,10 +1,10 @@
-// Settings stored in %APPDATA%\WirelessTray\<file>
+// Settings stored in %APPDATA%\Juice\<file>
 #pragma once
 #include <map>
 #include <string>
 
 struct Config {
-    std::wstring file = L"config.ini";  // ini file name inside %APPDATA%\WirelessTray
+    std::wstring file = L"juice.ini";   // ini file name inside %APPDATA%\Juice
 
     int  intervalMin  = 5;      // polling interval in minutes
     bool lowWarning   = true;

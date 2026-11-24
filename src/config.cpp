@@ -1,4 +1,4 @@
-﻿#include "config.h"
+#include "config.h"
 
 #include <windows.h>
 #include <shlobj.h>
@@ -11,16 +11,24 @@ namespace {
 
 const wchar_t* RUN_KEY = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
-std::wstring IniPath(const std::wstring& file) {
+std::wstring AppDataDir() {
     wchar_t* appdata = nullptr;
     std::wstring dir;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &appdata))) {
         dir = appdata;
         CoTaskMemFree(appdata);
     }
-    dir += L"\\WirelessTray";
+    return dir;
+}
+
+std::wstring IniPath(const std::wstring& file) {
+    std::wstring dir = AppDataDir() + L"\\Juice";
     CreateDirectoryW(dir.c_str(), nullptr);
-    return dir + L"\\" + file;
+    std::wstring path = dir + L"\\" + file;
+    // Settings from before the rename (Wireless Bar) are carried over once.
+    if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
+        CopyFileW((AppDataDir() + L"\\WirelessTray\\bar.ini").c_str(), path.c_str(), TRUE);
+    return path;
 }
 
 int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }

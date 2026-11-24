@@ -1,4 +1,4 @@
-// Wireless Bar: a regular taskbar button whose progress bar shows the battery level of a wireless
+// Juice: a regular taskbar button whose progress bar shows the battery level of a wireless
 // device (green / yellow / red), with an overlay badge (% or charging bolt) and a compact window
 // listing every device. Closing the window sends the app to the notification area (tray icon with
 // the battery level); "Sair" in the tray menu exits.
@@ -30,9 +30,9 @@ namespace {
 constexpr UINT WM_APP_SCANDONE = WM_APP + 1;
 constexpr UINT WM_APP_NOTIFY   = WM_APP + 2;
 constexpr UINT_PTR TIMER_POLL = 1, TIMER_SOON = 2, TIMER_CLOCK = 3, TIMER_NOTIFY_END = 4, TIMER_ROTATE = 5;
-const wchar_t* CLASS_NAME     = L"WirelessBarWnd";
-const wchar_t* AUTOSTART_NAME = L"WirelessBar";
-const wchar_t* APP_ID         = L"WirelessTray.WirelessBar";
+const wchar_t* CLASS_NAME     = L"JuiceWnd";
+const wchar_t* AUTOSTART_NAME = L"Juice";
+const wchar_t* APP_ID         = L"Juice.App";
 
 // Layout in DIPs.
 constexpr int WIN_W = 340, PAD = 16, TOP_PAD = 8, ROW_H = 72, ILL = 40, FOOT_H = 48, EMPTY_H = 72;
@@ -177,7 +177,7 @@ std::wstring TrayTip() {
         if (!tip.empty()) tip += L"\n";
         tip += d.Label() + L": " + std::to_wstring(d.percent) + L"%" + (d.charging ? L" (carregando)" : L"");
     }
-    if (tip.empty()) tip = g_dm.Scanning() ? L"Wireless Bar — procurando dispositivos..." : L"Wireless Bar — nenhum dispositivo";
+    if (tip.empty()) tip = g_dm.Scanning() ? L"Juice — procurando dispositivos..." : L"Juice — nenhum dispositivo";
     return tip;
 }
 
@@ -259,7 +259,7 @@ void UpdateTaskbar() {
                 (g_demoPercent >= 0 ? L" (demo)" : L"");
         SetWindowIcons(d->kind);
     } else {
-        title = g_dm.Scanning() ? L"Wireless Bar — procurando dispositivos..." : L"Wireless Bar — nenhum dispositivo";
+        title = g_dm.Scanning() ? L"Juice — procurando dispositivos..." : L"Juice — nenhum dispositivo";
         SetWindowIcons(Kind::App);
     }
     SetWindowTextW(g_hwnd, title.c_str());
@@ -307,7 +307,7 @@ void NotifyLow(const Device& d) {
     if (g_notifyIcon) DestroyIcon(g_notifyIcon);
     g_notifyIcon = MakeIllustrationIcon(d.kind, GetSystemMetrics(SM_CXSMICON));
     nid.hIcon = g_notifyIcon;
-    wcscpy_s(nid.szTip, L"Wireless Bar");
+    wcscpy_s(nid.szTip, L"Juice");
     nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
     wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
     wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
@@ -783,8 +783,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     }
 
     // The demo runs alongside the real instance, with its own taskbar button.
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, g_demoPercent >= 0 ? L"WirelessTray.WirelessBar.Demo"
-                                                                  : L"WirelessTray.WirelessBar.SingleInstance");
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, g_demoPercent >= 0 ? L"Juice.Demo"
+                                                                  : L"Juice.SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS && g_demoPercent < 0) {
         if (HWND other = FindWindowW(CLASS_NAME, nullptr)) {
             AllowSetForegroundWindow(ASFW_ANY);
@@ -794,11 +794,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     }
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    SetCurrentProcessExplicitAppUserModelID(g_demoPercent >= 0 ? L"WirelessTray.WirelessBar.Demo" : APP_ID);
+    SetCurrentProcessExplicitAppUserModelID(g_demoPercent >= 0 ? L"Juice.Demo" : APP_ID);
     INITCOMMONCONTROLSEX icc{ sizeof(icc), ICC_LISTVIEW_CLASSES | ICC_UPDOWN_CLASS | ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
-    g_cfg.file = L"bar.ini";
+    g_cfg.file = L"juice.ini";
     g_cfg.Load();
 
     WNDCLASSEXW wc{ sizeof(wc) };
@@ -818,7 +818,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     GetMonitorInfoW(MonitorFromPoint(cur, MONITOR_DEFAULTTOPRIMARY), &mi);
 
     const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
-    g_hwnd = CreateWindowExW(0, CLASS_NAME, L"Wireless Bar", style, mi.rcWork.right - 400, mi.rcWork.bottom - 300,
+    g_hwnd = CreateWindowExW(0, CLASS_NAME, L"Juice", style, mi.rcWork.right - 400, mi.rcWork.bottom - 300,
                              360, 260, nullptr, nullptr, inst, nullptr);
     ChangeWindowMessageFilterEx(g_hwnd, g_msgButtonCreated, MSGFLT_ALLOW, nullptr);
     ChangeWindowMessageFilterEx(g_hwnd, g_msgTaskbarCreated, MSGFLT_ALLOW, nullptr);

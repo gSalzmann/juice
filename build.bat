@@ -14,9 +14,9 @@ set LFLAGS=/LTCG /OPT:REF /OPT:ICF /MANIFEST:NO
 set CORE=src\hidpp.cpp src\btbattery.cpp src\config.cpp src\devices.cpp src\icon.cpp
 
 rem App (taskbar button + tray when closed)
-rc /nologo /c65001 /fo build\obj\bar.res src\bar.rc || exit /b 1
-cl %CFLAGS% src\bar.cpp src\illust.cpp %CORE% build\obj\bar.res ^
-   /Fe:build\WirelessBar.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
+rc /nologo /c65001 /fo build\obj\juice.res src\juice.rc || exit /b 1
+cl %CFLAGS% src\juice.cpp src\illust.cpp %CORE% build\obj\juice.res ^
+   /Fe:build\Juice.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
 
 rem Dev tools
 cl %CFLAGS% tools\probe.cpp src\hidpp.cpp src\btbattery.cpp /Fe:build\probe.exe /link %LFLAGS% /SUBSYSTEM:CONSOLE || exit /b 1

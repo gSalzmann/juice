@@ -7,7 +7,7 @@
 
 IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 270
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Wireless Bar — Configurações"
+CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Dispositivo mostrado na barra de tarefas:", -1, 10, 8, 240, 10
