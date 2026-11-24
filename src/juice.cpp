@@ -56,6 +56,11 @@ RECT g_btnRefresh{}, g_btnSettings{};
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
+// UI language follows Windows: Portuguese when the Windows display language is Portuguese, English
+// otherwise. "--lang pt|en" overrides it (for testing / screenshots).
+bool g_en = PRIMARYLANGID(GetUserDefaultUILanguage()) != LANG_PORTUGUESE;
+const wchar_t* T(const wchar_t* pt, const wchar_t* en) { return g_en ? en : pt; }
+
 bool AppsUseLightTheme() {
     DWORD v = 1, sz = sizeof(v);
     RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
@@ -78,9 +83,9 @@ COLORREF Cref(uint32_t rgb) { return RGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, 
 
 std::wstring Ago(ULONGLONG tick) {
     ULONGLONG min = (GetTickCount64() - tick) / 60000;
-    if (min < 1) return L"agora";
-    if (min < 60) return L"há " + std::to_wstring(min) + L" min";
-    return L"há " + std::to_wstring(min / 60) + L" h";
+    if (min < 1) return T(L"agora", L"just now");
+    std::wstring n = min < 60 ? std::to_wstring(min) + L" min" : std::to_wstring(min / 60) + L" h";
+    return g_en ? n + L" ago" : L"há " + n;
 }
 
 // Rows displayed in the window: present devices first, then known but disconnected ones.
@@ -150,7 +155,7 @@ void ApplyDemo() {
             g_dm.Devices().push_back(Device{});
             d = &g_dm.Devices().back();
             d->key = L"demo";
-            d->name = L"Demonstração";
+            d->name = T(L"Demonstração", L"Demo");
             d->kind = Kind::Headset;
         }
     }
@@ -175,9 +180,10 @@ std::wstring TrayTip() {
     for (auto& d : g_dm.Devices()) {
         if (!d.present || d.percent < 0 || g_dm.IsHidden(d.key)) continue;
         if (!tip.empty()) tip += L"\n";
-        tip += d.Label() + L": " + std::to_wstring(d.percent) + L"%" + (d.charging ? L" (carregando)" : L"");
+        tip += d.Label() + L": " + std::to_wstring(d.percent) + L"%" + (d.charging ? T(L" (carregando)", L" (charging)") : L"");
     }
-    if (tip.empty()) tip = g_dm.Scanning() ? L"Juice — procurando dispositivos..." : L"Juice — nenhum dispositivo";
+    if (tip.empty()) tip = g_dm.Scanning() ? T(L"Juice — procurando dispositivos...", L"Juice — searching for devices...")
+                                           : T(L"Juice — nenhum dispositivo", L"Juice — no devices");
     return tip;
 }
 
@@ -255,11 +261,12 @@ void UpdateTaskbar() {
     const Device* d = SelectedDevice();
     std::wstring title;
     if (d) {
-        title = d->Label() + L" — " + std::to_wstring(d->percent) + L"%" + (d->charging ? L" · carregando" : L"") +
+        title = d->Label() + L" — " + std::to_wstring(d->percent) + L"%" + (d->charging ? T(L" · carregando", L" · charging") : L"") +
                 (g_demoPercent >= 0 ? L" (demo)" : L"");
         SetWindowIcons(d->kind);
     } else {
-        title = g_dm.Scanning() ? L"Juice — procurando dispositivos..." : L"Juice — nenhum dispositivo";
+        title = g_dm.Scanning() ? T(L"Juice — procurando dispositivos...", L"Juice — searching for devices...")
+                                : T(L"Juice — nenhum dispositivo", L"Juice — no devices");
         SetWindowIcons(Kind::App);
     }
     SetWindowTextW(g_hwnd, title.c_str());
@@ -294,7 +301,7 @@ void NotifyLow(const Device& d) {
         FillTrayNid(nid);
         nid.uFlags = NIF_INFO;
         nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
-        wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
+        wcscpy_s(nid.szInfoTitle, T(L"Bateria baixa", L"Low battery"));
         wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
         Shell_NotifyIconW(NIM_MODIFY, &nid);
         return;
@@ -309,7 +316,7 @@ void NotifyLow(const Device& d) {
     nid.hIcon = g_notifyIcon;
     wcscpy_s(nid.szTip, L"Juice");
     nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
-    wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
+    wcscpy_s(nid.szInfoTitle, T(L"Bateria baixa", L"Low battery"));
     wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
     Shell_NotifyIconW(g_notifyShown ? NIM_MODIFY : NIM_ADD, &nid);
     g_notifyShown = true;
@@ -401,7 +408,7 @@ void Paint(HDC target) {
     int y = S(TOP_PAD);
 
     if (rows.empty()) {
-        DrawTextAt(dc, g_dm.Scanning() ? L"Procurando dispositivos..." : L"Nenhum dispositivo encontrado",
+        DrawTextAt(dc, g_dm.Scanning() ? T(L"Procurando dispositivos...", L"Searching for devices...") : T(L"Nenhum dispositivo encontrado", L"No devices found"),
                    RECT{ 0, y, W, y + S(EMPTY_H) }, DT_CENTER | DT_VCENTER, fSub, th.sub);
         y += S(EMPTY_H);
     }
@@ -441,11 +448,11 @@ void Paint(HDC target) {
 
         // Status line
         std::wstring status;
-        if (!online)            status = L"Desconectado";
-        else if (d->charging)   status = L"Carregando";
-        else if (d->asleep)     status = L"Em repouso · leitura " + Ago(d->lastGood);
-        else                    status = L"Atualizado " + Ago(d->lastGood);
-        if (online && g_taskbar && SelectedDevice() == d) status += L"  ·  na barra de tarefas";
+        if (!online)            status = T(L"Desconectado", L"Disconnected");
+        else if (d->charging)   status = T(L"Carregando", L"Charging");
+        else if (d->asleep)     status = T(L"Em repouso · leitura ", L"Asleep · read ") + Ago(d->lastGood);
+        else                    status = T(L"Atualizado ", L"Updated ") + Ago(d->lastGood);
+        if (online && g_taskbar && SelectedDevice() == d) status += T(L"  ·  na barra de tarefas", L"  ·  on the taskbar");
         DrawTextAt(dc, status, RECT{ tx, y + S(48), right, y + S(66) }, DT_LEFT | DT_VCENTER, fSub, th.sub);
 
         y += S(ROW_H);
@@ -473,9 +480,9 @@ void Paint(HDC target) {
         DrawTextAt(dc, glyph, RECT{ bx + S(10), fy, bx + S(10) + gs.cx, fy + fh }, DT_LEFT | DT_VCENTER, fGlyph, th.text);
         DrawTextAt(dc, label, RECT{ bx + S(10) + gs.cx + S(8), fy, bx + bw, fy + fh }, DT_LEFT | DT_VCENTER, fSub, th.text);
     };
-    button(g_btnRefresh, S(PAD) - S(10), false, L"\xE72C", g_dm.Scanning() ? L"Atualizando..." : L"Atualizar",
+    button(g_btnRefresh, S(PAD) - S(10), false, L"\xE72C", g_dm.Scanning() ? T(L"Atualizando...", L"Refreshing...") : T(L"Atualizar", L"Refresh"),
            g_hover == HOVER_REFRESH);
-    button(g_btnSettings, W - S(PAD) + S(10), true, L"\xE713", L"Configurações", g_hover == HOVER_SETTINGS);
+    button(g_btnSettings, W - S(PAD) + S(10), true, L"\xE713", T(L"Configurações", L"Settings"), g_hover == HOVER_SETTINGS);
 
     BitBlt(target, 0, 0, W, H, dc, 0, 0, SRCCOPY);
     DeleteObject(fName); DeleteObject(fPct); DeleteObject(fSub); DeleteObject(fGlyph);
@@ -518,9 +525,9 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
     }
 
     HWND combo = GetDlgItem(dlg, IDC_BAR_DEVICE);
-    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)L"Automático (menor bateria)");
+    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)T(L"Automático (menor bateria)", L"Automatic (lowest battery)"));
     st.comboKeys.push_back(L"");
-    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)L"Todos (alterna a cada minuto)");
+    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)T(L"Todos (alterna a cada minuto)", L"All (rotate every minute)"));
     st.comboKeys.push_back(L"*");
     int sel = g_cfg.barDevice == L"*" ? 1 : 0;
     for (auto& [k, n] : all) {
@@ -537,10 +544,10 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
     LVCOLUMNW col{ LVCF_TEXT | LVCF_WIDTH };
     const int w2 = MulDiv(80, GetDpiForWindow(list), 96);
     col.cx = rc.right - w2 - GetSystemMetrics(SM_CXVSCROLL);
-    col.pszText = (LPWSTR)L"Dispositivo";
+    col.pszText = (LPWSTR)T(L"Dispositivo", L"Device");
     ListView_InsertColumn(list, 0, &col);
     col.cx = w2;
-    col.pszText = (LPWSTR)L"Bateria";
+    col.pszText = (LPWSTR)T(L"Bateria", L"Battery");
     ListView_InsertColumn(list, 1, &col);
     int i = 0;
     for (auto& [k, n] : all) {
@@ -549,7 +556,7 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
         it.iItem = i;
         it.pszText = (LPWSTR)n.c_str();
         ListView_InsertItem(list, &it);
-        std::wstring status = L"desconectado";
+        std::wstring status = T(L"desconectado", L"disconnected");
         if (Device* d = g_dm.Find(k); d && d->present && d->percent >= 0)
             status = std::to_wstring(d->percent) + L"%" + (d->charging ? L" ⚡" : L"");
         ListView_SetItemText(list, i, 1, (LPWSTR)status.c_str());
@@ -564,6 +571,18 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     case WM_INITDIALOG:
         st = new DlgState;
         g_settingsDlg = dlg;
+        if (g_en) {   // the dialog resource is written in Portuguese
+            SetWindowTextW(dlg, L"Juice — Settings");
+            SetDlgItemTextW(dlg, IDC_LBL_BARDEVICE, L"Device shown on the taskbar:");
+            SetDlgItemTextW(dlg, IDC_LBL_DEVICES, L"Devices shown in the window:");
+            SetDlgItemTextW(dlg, IDC_LBL_EVERY, L"Refresh every");
+            SetDlgItemTextW(dlg, IDC_LBL_MINUTES, L"minutes");
+            SetDlgItemTextW(dlg, IDC_LOWWARN, L"Warn when the battery drops below");
+            SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Show the percentage on the taskbar icon");
+            SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray icon number by battery level");
+            SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
+            SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
+        }
         FillDeviceControls(dlg, *st);
         SendDlgItemMessageW(dlg, IDC_INTERVAL_SPIN, UDM_SETRANGE32, 1, 60);
         SendDlgItemMessageW(dlg, IDC_INTERVAL_SPIN, UDM_SETPOS32, 0, g_cfg.intervalMin);
@@ -624,12 +643,12 @@ void OpenSettings();
 void ShowTrayMenu(POINT pt) {
     enum { ID_OPEN = 1, ID_REFRESH, ID_SETTINGS, ID_EXIT };
     HMENU m = CreatePopupMenu();
-    AppendMenuW(m, MF_STRING, ID_OPEN, L"Abrir");
+    AppendMenuW(m, MF_STRING, ID_OPEN, T(L"Abrir", L"Open"));
     SetMenuDefaultItem(m, ID_OPEN, FALSE);
-    AppendMenuW(m, MF_STRING, ID_REFRESH, L"Atualizar agora");
-    AppendMenuW(m, MF_STRING, ID_SETTINGS, L"Configurações...");
+    AppendMenuW(m, MF_STRING, ID_REFRESH, T(L"Atualizar agora", L"Refresh now"));
+    AppendMenuW(m, MF_STRING, ID_SETTINGS, T(L"Configurações...", L"Settings..."));
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING, ID_EXIT, L"Sair");
+    AppendMenuW(m, MF_STRING, ID_EXIT, T(L"Sair", L"Exit"));
     SetForegroundWindow(g_hwnd);
     UINT cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, g_hwnd, nullptr);
     DestroyMenu(m);
@@ -792,6 +811,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
         }
         return 0;
     }
+
+    if (const wchar_t* lang = cmdLine ? wcsstr(cmdLine, L"--lang ") : nullptr) g_en = _wcsnicmp(lang + 7, L"pt", 2) != 0;
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     SetCurrentProcessExplicitAppUserModelID(g_demoPercent >= 0 ? L"Juice.Demo" : APP_ID);

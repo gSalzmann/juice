@@ -10,16 +10,16 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Dispositivo mostrado na barra de tarefas:", -1, 10, 8, 240, 10
+    LTEXT           "Dispositivo mostrado na barra de tarefas:", IDC_LBL_BARDEVICE, 10, 8, 240, 10
     COMBOBOX        IDC_BAR_DEVICE, 10, 20, 240, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
-    LTEXT           "Dispositivos exibidos na janela:", -1, 10, 42, 240, 10
+    LTEXT           "Dispositivos exibidos na janela:", IDC_LBL_DEVICES, 10, 42, 240, 10
     CONTROL         "", IDC_DEVICES, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 10, 54, 240, 74
 
-    LTEXT           "Atualizar a cada", -1, 10, 140, 60, 10
+    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 10, 140, 60, 10
     EDITTEXT        IDC_INTERVAL, 72, 138, 30, 12, ES_NUMBER
     CONTROL         "", IDC_INTERVAL_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "minutos", -1, 106, 140, 40, 10
+    LTEXT           "minutos", IDC_LBL_MINUTES, 106, 140, 40, 10
 
     AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 10, 160, 142, 10
     EDITTEXT        IDC_THRESHOLD, 154, 158, 30, 12, ES_NUMBER
