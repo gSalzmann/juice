@@ -56,6 +56,9 @@ public:
     // Last level read from a device that is no longer connected (kept in the ini across restarts).
     // Returns false if there is none. `unixTime` is when it was read.
     bool LastKnown(const std::wstring& key, int& percent, long long& unixTime) const;
+    // Time left on battery, from how fast the level dropped since the current discharge began.
+    // Returns false while there is not enough data (or the device is charging).
+    bool TimeLeft(const Device& d, long long& seconds) const;
     // Copies the current readings into the ini map; returns true when it should be saved.
     bool RecordLast();
     bool keepLast = true;   // false in demo mode, so fake levels never reach the ini

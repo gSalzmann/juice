@@ -82,6 +82,7 @@ bool DeviceManager::Adopt(const std::wstring& from, const std::wstring& to) {
     move(cfg_.kinds);
     move(cfg_.hidden);
     move(cfg_.last);
+    move(cfg_.drain);
     if (cfg_.barDevice == from) { cfg_.barDevice = to; changed = true; }
     devices_.erase(std::remove_if(devices_.begin(), devices_.end(),
                                   [&](const Device& d) { return d.key == from; }), devices_.end());
@@ -93,6 +94,7 @@ void DeviceManager::Forget(const std::wstring& key) {
     cfg_.kinds.erase(key);
     cfg_.hidden.erase(key);
     cfg_.last.erase(key);
+    cfg_.drain.erase(key);
     if (cfg_.barDevice == key) cfg_.barDevice.clear();
     for (auto* m : { &cfg_.slots, &cfg_.aliases })
         for (auto it = m->begin(); it != m->end();)
@@ -119,11 +121,36 @@ bool DeviceManager::RecordLast() {
             // Saved on every level change; the time alone only goes to disk when the device leaves.
             if (e.empty() || _wtoi(e.c_str()) != d.percent) save = true;
             e = std::to_wstring(d.percent) + L"," + std::to_wstring(when);
+
+            // Start of the current discharge: reset when charging or when the level went up (charged
+            // elsewhere); a small rise is reading noise (voltage-based levels wobble).
+            auto it = cfg_.drain.find(d.key);
+            if (d.charging) {
+                if (it != cfg_.drain.end()) { cfg_.drain.erase(it); save = true; }
+            } else if (it == cfg_.drain.end() || d.percent > _wtoi(it->second.c_str()) + 3) {
+                cfg_.drain[d.key] = e;
+                save = true;
+            }
         }
         if (d.wasPresent && !d.present) save = true;
         d.wasPresent = d.present;
     }
     return save;
+}
+
+bool DeviceManager::TimeLeft(const Device& d, long long& seconds) const {
+    if (d.charging || d.percent < 0) return false;
+    auto it = cfg_.drain.find(d.key);
+    if (it == cfg_.drain.end()) return false;
+    const wchar_t* comma = wcschr(it->second.c_str(), L',');
+    if (!comma) return false;
+    const int startPct = _wtoi(it->second.c_str());
+    const long long startTime = _wtoi64(comma + 1);
+    const long long elapsed = UnixNow() - (long long)((GetTickCount64() - d.lastGood) / 1000) - startTime;
+    const int drop = startPct - d.percent;
+    if (drop < 5 || elapsed < 30 * 60) return false;   // too little to tell
+    seconds = (long long)d.percent * elapsed / drop;
+    return true;
 }
 
 bool DeviceManager::LastKnown(const std::wstring& key, int& percent, long long& unixTime) const {

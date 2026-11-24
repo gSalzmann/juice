@@ -20,7 +20,8 @@ struct Config {
     std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")
     std::map<std::wstring, std::wstring> slots;   // HID++ receiver slot / interface key -> device key (serial) seen there
     std::map<std::wstring, std::wstring> aliases;
-    std::map<std::wstring, std::wstring> last;    // device key -> "percent,unix time" of the last reading // Bluetooth key -> HID++ device key of the same physical device
+    std::map<std::wstring, std::wstring> last;    // device key -> "percent,unix time" of the last reading
+    std::map<std::wstring, std::wstring> drain;   // device key -> "percent,unix time" where the current discharge began // Bluetooth key -> HID++ device key of the same physical device
 
     void Load();
     void Save() const;

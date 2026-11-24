@@ -92,6 +92,14 @@ std::wstring AgoMinutes(long long min) {
                    : std::to_wstring(min / (24 * 60)) + (g_en ? L" days" : L" dias");
     return g_en ? n + L" ago" : L"há " + n;
 }
+// "~5 h restantes" / "~2 dias restantes".
+std::wstring TimeLeftText(long long seconds) {
+    const long long h = (seconds + 1800) / 3600;
+    std::wstring n = h < 1 ? std::wstring(L"<1 h") : h < 48 ? L"~" + std::to_wstring(h) + L" h"
+                   : L"~" + std::to_wstring((h + 12) / 24) + (g_en ? L" days" : L" dias");
+    return n + T(L" restantes", L" left");
+}
+
 std::wstring Ago(ULONGLONG tick) { return AgoMinutes((long long)((GetTickCount64() - tick) / 60000)); }
 
 long long UnixNow() {
@@ -504,6 +512,7 @@ void Paint(HDC target) {
                 status += label[p] + std::to_wstring(d->parts[p]) + L"%" + (d->partCharging[p] ? L"⚡" : L"");
             }
         }
+        else if (long long left; g_dm.TimeLeft(*d, left)) status = TimeLeftText(left);
         else                    status = T(L"Atualizado ", L"Updated ") + Ago(d->lastGood);
         if (online && g_taskbar && SelectedDevice() == d) status += T(L"  ·  na barra de tarefas", L"  ·  on the taskbar");
         DrawTextAt(dc, status, RECT{ tx, y + S(48), right, y + S(66) }, DT_LEFT | DT_VCENTER, fSub, th.sub);

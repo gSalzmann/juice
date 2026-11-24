@@ -72,12 +72,14 @@ void Config::Load() {
     slots.clear();
     aliases.clear();
     last.clear();
+    drain.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
     for (auto& [k, v] : ReadSection(ini, L"devices")) known[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"kinds")) kinds[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"slots")) slots[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"aliases")) aliases[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"last")) last[k] = v;
+    for (auto& [k, v] : ReadSection(ini, L"drain")) drain[k] = v;
 }
 
 void Config::Save() const {
@@ -108,6 +110,7 @@ void Config::Save() const {
     writeMap(L"slots", slots);
     writeMap(L"aliases", aliases);
     writeMap(L"last", last);
+    writeMap(L"drain", drain);
 }
 
 bool AutostartEnabled(const wchar_t* name) {
