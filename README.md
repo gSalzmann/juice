@@ -40,18 +40,17 @@ the vendor's software — and shows it in the most visible spot in Windows: **th
 - 🔔 **Low battery warning** as a Windows notification
 - 🔁 **Multiple devices**: show the lowest battery, a fixed one, or rotate through all of them every minute
 - 🪶 **Actually lightweight**: pure Win32, no runtime, ~0.2 MB of memory while in the tray
-
-> The user interface is currently in **Portuguese (Brazil)**; the screenshots below show it as it is.
+- 🌐 **English and Portuguese**: follows the Windows display language automatically
 
 ## Screenshots
 
 ### The window
 
-<img src="docs/img/window.png" alt="Juice window showing the G502 X PLUS at 92% and the G933 disconnected" width="342">
+<img src="docs/img/window.png" alt="Juice window showing the G502 X PLUS at 91% and the G933 disconnected" width="342">
 
 Each row shows the device, its percentage, a bar in the color of its charge range and a status
-(*updated now*, *charging*, *asleep · read 12 min ago*, *disconnected*). The device marked
-**· na barra de tarefas** (*on the taskbar*) is the one on the button. Shortcuts: <kbd>F5</kbd> refreshes,
+(*Updated just now*, *Charging*, *Asleep · read 12 min ago*, *Disconnected*). The device marked
+**· on the taskbar** is the one on the button. Shortcuts: <kbd>F5</kbd> refreshes,
 <kbd>Esc</kbd> minimizes.
 
 ### The taskbar button
@@ -65,7 +64,7 @@ The progress bar uses the native Windows states (normal, paused and error), so t
 accent color. The badge can be turned off in the settings, leaving just the bar (the charging bolt still
 shows up).
 
-> Real Windows 11 captures. The window title shows the value too: `G502 X PLUS — 92%`.
+> Real Windows 11 captures. The window title shows the value too: `G502 X PLUS — 91%`.
 
 ### The tray
 
@@ -121,7 +120,7 @@ plugged in or removed, or the PC resumes from sleep.
 
 ## Settings
 
-Open **Configurações** (*Settings*) from the window or the tray menu.
+Open **Settings** from the window or the tray menu.
 
 | Option | Default | What it does |
 |---|---|---|
@@ -145,6 +144,7 @@ Everything lives in `%APPDATA%\Juice\juice.ini` (plain text; delete it to reset 
 | `--tray` | Starts straight in the tray (used by "Start with Windows") |
 | `--demo 22` | Test mode: simulates 22% on the taskbar device, on a button separate from the normal app |
 | `--demo 80c` | Same, charging |
+| `--lang en` / `--lang pt` | Forces the interface language (by default it follows the Windows display language: Portuguese if Windows is in Portuguese, English otherwise) |
 
 In test mode, with the window focused, <kbd>↑</kbd>/<kbd>↓</kbd> change the level by 5% and <kbd>C</kbd>
 toggles charging — handy to see every color and the low battery warning without waiting for the battery to

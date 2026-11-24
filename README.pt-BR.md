@@ -40,12 +40,13 @@ fabricante — e mostra no lugar mais visível do Windows: **o botão do própri
 - 🔔 **Aviso de bateria baixa** com notificação do Windows
 - 🔁 **Vários dispositivos**: mostra o de menor bateria, um fixo, ou alterna entre todos a cada minuto
 - 🪶 **Leve de verdade**: Win32 puro, sem runtime, ~0,2 MB de memória na bandeja
+- 🌐 **Português e inglês**: segue automaticamente o idioma de exibição do Windows
 
 ## Como fica
 
 ### A janela
 
-<img src="docs/img/window.png" alt="Janela do Juice com o G502 X PLUS a 92% e o G933 desconectado" width="342">
+<img src="docs/img/window.pt-BR.png" alt="Janela do Juice com o G502 X PLUS a 92% e o G933 desconectado" width="342">
 
 Cada linha mostra o dispositivo, o percentual, uma barra no tom da faixa de carga e o status
 (*Atualizado agora*, *Carregando*, *Em repouso · leitura há 12 min*, *Desconectado*). O dispositivo
@@ -144,6 +145,7 @@ Tudo fica em `%APPDATA%\Juice\juice.ini` (texto simples, pode ser apagado para v
 | `--tray` | Inicia direto na bandeja (é o que o "Iniciar com o Windows" usa) |
 | `--demo 22` | Modo de teste: simula 22% no dispositivo da barra, num botão separado do app normal |
 | `--demo 80c` | Idem, carregando |
+| `--lang pt` / `--lang en` | Força o idioma da interface (por padrão segue o idioma de exibição do Windows: português se o Windows estiver em português, inglês nos demais) |
 
 No modo de teste, com a janela em foco, <kbd>↑</kbd>/<kbd>↓</kbd> mudam o nível em 5% e <kbd>C</kbd>
 liga/desliga o carregamento — útil para ver todas as cores e o aviso de bateria baixa sem esperar a
