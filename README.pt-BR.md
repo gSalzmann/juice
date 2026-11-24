@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <b>A bateria dos seus periféricos sem fio, direto na barra de tarefas do Windows.</b><br>
-  Sem G HUB, sem serviço em segundo plano, sem instalador — um único <code>.exe</code> de ~280 KB.
+  <b>A bateria do seu mouse, teclado, headset, caixa de som e controle sem fio, direto na barra de tarefas do Windows.</b><br>
+  Sem G HUB, sem serviço em segundo plano, sem instalador — um único <code>.exe</code> de ~370 KB.
 </p>
 
 <p align="center">
@@ -34,13 +34,16 @@ com canudo, e a carga é o suco que enche a caixinha (e as letras do nome) até 
 
 ## O que ele faz
 
-O Juice lê o nível de bateria de mouses, teclados e headsets sem fio — direto do hardware, sem o software do
-fabricante — e mostra no lugar mais visível do Windows: **o botão do próprio app na barra de tarefas**.
+O Juice lê o nível de bateria de mouses, teclados, headsets, fones, caixas de som JBL e controles de Xbox sem
+fio — direto do hardware, sem o software do fabricante — e mostra no lugar mais visível do Windows: **o botão
+do próprio app na barra de tarefas**.
 
 - 🔋 **Barra de progresso do botão = % de bateria**, colorida pela faixa de carga
 - 🔢 **Selo no ícone** com o número (ou um raio quando está carregando)
-- 🖱️ **Ilustração do dispositivo** como ícone do botão (mouse, headset, teclado)
+- 🖱️ **Ilustração do dispositivo** como ícone do botão (mouse, headset, teclado, caixa de som, controle)
 - 🪟 **Janela compacta** com todos os dispositivos, nível, status e horário da última leitura
+- 🕓 **Último nível conhecido** dos dispositivos desconectados, em cinza, guardado entre reinícios
+- ✖️ **Remover** pela própria janela um dispositivo que você não usa mais
 - 📥 **Fechou a janela? Vai para a bandeja**, com o ícone do dispositivo e o percentual em pixel-art
 - 🔔 **Aviso de bateria baixa** com notificação do Windows
 - 🔁 **Vários dispositivos**: mostra o de menor bateria, um fixo, ou alterna entre todos a cada minuto
@@ -51,11 +54,13 @@ fabricante — e mostra no lugar mais visível do Windows: **o botão do própri
 
 ### A janela
 
-<img src="docs/img/window.pt-BR.png" alt="Janela do Juice com o G502 X PLUS a 92% e o G933 desconectado" width="342">
+<img src="docs/img/window.pt-BR.png" alt="Janela do Juice com dispositivos conectados e desconectados mostrando o último nível" width="340">
 
 Cada linha mostra o dispositivo, o percentual, uma barra no tom da faixa de carga e o status
-(*Atualizado agora*, *Carregando*, *Em repouso · leitura há 12 min*, *Desconectado*). O dispositivo
-marcado com **· na barra de tarefas** é o que está no botão. Atalhos: <kbd>F5</kbd> atualiza,
+(*Atualizado agora*, *Carregando*, *Em repouso · leitura há 12 min*, *Desconectado · leitura há 2 h*). O
+dispositivo marcado com **· na barra de tarefas** é o que está no botão. Um dispositivo desconectado continua
+com o último nível em cinza (dá para desligar nas configurações); passe o mouse sobre ele e clique no **×**
+para tirá-lo da lista — ele volta sozinho se conectar de novo. Atalhos: <kbd>F5</kbd> atualiza,
 <kbd>Esc</kbd> minimiza.
 
 ### O botão na barra de tarefas
@@ -76,7 +81,7 @@ carregamento continua aparecendo).
 Ao **fechar** a janela (X), o Juice continua rodando na área de notificação. O ícone mostra o mesmo
 dispositivo da barra de tarefas, com o número desenhado em dígitos de 4×6 pixels para ficar legível em 16 px:
 
-<img src="docs/img/tray-icons.png" alt="Ícones da bandeja: mouse 97, headset 37, headset 22, teclado 12, mouse carregando 55" width="720">
+<img src="docs/img/tray-icons.png" alt="Ícones da bandeja: mouse 97, headset 37, headset 22, teclado 12, mouse carregando 55, caixa de som 30, controle 70" width="900">
 
 <sub>Ampliado 10×. Com "Colorir o número" ligado: azul ≥ 30%, laranja 15–29%, vermelho &lt; 15%, verde carregando.
 Desligado, o número segue o tema da barra e só fica vermelho no nível crítico e verde ao carregar.</sub>
@@ -90,7 +95,7 @@ Desligado, o número segue o tema da barra e só fica vermelho no nível crític
 Desenhadas em código por um pequeno renderizador vetorial (SDF com anti-aliasing e gradientes), nítidas
 em qualquer tamanho e escala de tela, nos temas escuro e claro:
 
-<img src="docs/img/illustrations.png" alt="Ilustrações de mouse, headset, teclado e bateria em 24, 32 e 64 px, e os selos 97, 22, 9, 100 e carregando" width="900">
+<img src="docs/img/illustrations.png" alt="Ilustrações de mouse, headset, teclado, caixa de som, controle e bateria em 24, 32 e 64 px, e os selos 97, 22, 9, 100 e carregando" width="900">
 
 ## Fluxo da janela
 
@@ -111,11 +116,23 @@ Abrir o `Juice.exe` de novo com ele já rodando apenas traz a janela existente d
 
 | Fonte | Como o Juice lê | Testado com |
 |---|---|---|
-| **Logitech HID++ 2.0** — receptores LIGHTSPEED, Unifying, Bolt e USB direto | features `0x1004` (UnifiedBattery), `0x1000`, `0x1001` (tensão → %) e `0x1F20` (headsets) | G502 X PLUS (LIGHTSPEED), G933 |
-| **Bluetooth clássico** — fones com indicador de bateria (HFP) | propriedade de bateria que o próprio stack Bluetooth do Windows expõe | Galaxy Buds2 *(ainda não testado)* |
+| **Logitech HID++ 2.0** — receptores LIGHTSPEED, Unifying e Bolt, Bluetooth e USB direto | features `0x1004` (UnifiedBattery), `0x1000`, `0x1001` (tensão → %) e `0x1F20` (headsets) | G502 X PLUS (LIGHTSPEED), G309 (LIGHTSPEED e Bluetooth), G933 |
+| **Fones e headsets Bluetooth** que informam a bateria ao Windows (HFP) | propriedade de bateria que o próprio stack Bluetooth do Windows expõe | Galaxy Buds2, Galaxy Buds3 Pro |
+| **Caixas de som JBL** *(opcional, desligado por padrão)* | serviço de controle Bluetooth LE da JBL — o mesmo do app JBL Portable ([protocolo do JBLControl](https://github.com/ffrafat/JBLControl)) | JBL Flip 7 |
+| **Controle Xbox Wireless** pelo Bluetooth | o relatório de bateria que o controle envia sozinho a cada ~20 s (4 níveis: 10/40/70/100%) | controle do Xbox One S |
 
-O tipo de cada dispositivo (mouse, teclado, headset) e o nome são descobertos automaticamente — via feature
-`0x0005` do HID++ ou pela classe do dispositivo Bluetooth.
+O tipo de cada dispositivo (mouse, teclado, headset, caixa de som, controle) e o nome são descobertos
+automaticamente — via feature `0x0005` do HID++ ou pela classe do dispositivo Bluetooth — e lembrados, então um
+dispositivo desconectado mantém o ícone.
+
+**Uma linha por aparelho:** dispositivos Logitech são identificados pelo número de série, então um mouse que
+funciona tanto pelo dongle quanto pelo Bluetooth (como o G309) vira uma linha só, e dois receptores do mesmo
+modelo nunca misturam seus dispositivos.
+
+**Caixas JBL** aceitam uma conexão de controle por vez: enquanto o app JBL Portable do celular estiver
+conectado à caixa, o Juice não consegue ler. **Controles de Xbox** só enviam a bateria a cada ~20 s, então logo
+depois de conectar pode levar esse tempo para aparecer. Caixas de som que não informam a bateria ao Windows e
+não têm protocolo conhecido simplesmente não aparecem.
 
 **Dispositivos que dormem:** mouses Logitech parados entram em repouso e param de responder. O Juice mantém
 o último valor por até 1 hora, marcado como *Em repouso · leitura há X min*, em vez de mostrar o
@@ -136,7 +153,9 @@ Clique em **Configurações** na janela ou no menu da bandeja.
 | Avisar quando a bateria ficar abaixo de | 15% | Notificação do Windows, uma vez por descarga |
 | Exibir o percentual no ícone da barra de tarefas | ligado | Liga/desliga o selo com o número |
 | Colorir o número do ícone da bandeja conforme o nível | desligado | Azul / laranja / vermelho em vez da cor neutra |
+| Mostrar o último nível de dispositivos desconectados | ligado | Mantém a última leitura em cinza, com há quanto tempo foi lida |
 | Iniciar com o Windows (na bandeja) | desligado | Usa `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` — não precisa de administrador |
+| Ler bateria de caixas de som JBL (Bluetooth LE) | desligado | A cada atualização procura caixas JBL por ~2,5 s e conecta nelas para ler o nível (usa ~2 MB a mais de memória na bandeja) |
 
 Tudo fica em `%APPDATA%\Juice\juice.ini` (texto simples, pode ser apagado para voltar ao padrão).
 
@@ -169,11 +188,12 @@ O script encontra o MSVC sozinho (via `vswhere`) e gera em `build\`:
 | Arquivo | Para quê |
 |---|---|
 | `Juice.exe` | o app |
-| `probe.exe` | diagnóstico no terminal: lista cada interface HID++, dispositivos Bluetooth e baterias lidas |
+| `probe.exe` | diagnóstico no terminal: lista cada interface HID++, dispositivo Bluetooth, caixa JBL e controle de Xbox, e as baterias lidas |
 | `iconpreview.exe` | renderiza os ícones da bandeja ampliados num BMP |
 | `illustpreview.exe` | renderiza as ilustrações e os selos num BMP |
 
-Compilado com `/O1 /GL /LTCG` e CRT estática (`/MT`): não precisa de nenhum redistribuível instalado.
+Compilado com `/O1 /GL /LTCG` e CRT estática (`/MT`): não precisa de nenhum redistribuível instalado. O leitor
+da JBL usa a API Bluetooth LE do Windows Runtime via C++/WinRT (cabeçalhos do Windows SDK, sem DLL extra).
 
 ### Estrutura
 
@@ -183,6 +203,8 @@ src/
   devices.*      lista de dispositivos, leitura em segundo plano, repouso e avisos
   hidpp.*        protocolo Logitech HID++ 2.0 sobre HID do Windows
   btbattery.*    bateria de dispositivos Bluetooth via propriedades do sistema
+  jbl.*          caixas de som JBL via Bluetooth LE (C++/WinRT)
+  xbox.*         controles de Xbox: leitor em segundo plano do relatório de bateria
   illust.*       renderizador SDF: ilustrações, selos e barras da janela
   icon.*         ícones da bandeja (glifo + dígitos 4×6)
   config.*       juice.ini e início automático
@@ -194,12 +216,18 @@ docs/img/        imagens deste README
 
 Se um dispositivo não aparecer, rode `build\probe.exe` com ele ligado. A saída mostra cada receptor e slot
 encontrado, as features HID++ usadas e o resultado da leitura — por exemplo `no response (asleep?)` para um
-mouse em repouso, ou o erro devolvido por um headset desligado.
+mouse em repouso, ou o erro devolvido por um headset desligado. Ele também procura caixas JBL e espera até
+25 s pelo relatório de bateria dos controles de Xbox.
 
 ## Privacidade
 
 O Juice não acessa a internet, não coleta nada e não instala serviços. Ele só conversa com os seus
 dispositivos pelas APIs HID e Bluetooth do próprio Windows e grava um arquivo `.ini` na sua pasta de usuário.
+Ele só escuta anúncios Bluetooth LE quando a opção da JBL está ligada, e só se conecta a caixas JBL.
+
+## Histórico de versões
+
+Veja o [CHANGELOG.md](CHANGELOG.md).
 
 ## Licença
 
