@@ -14,7 +14,7 @@ background service, no internet access.
 | 5 | **Full charge notification** when a charging device reaches 100% (on by default) | ✅ done |
 | 6 | **One tray icon per device** (optional) | ✅ done |
 | 7 | **Portable mode**: a `juice.ini` next to `Juice.exe` is used instead of `%APPDATA%\Juice` | ✅ done |
-| 8 | **Automatic builds** with GitHub Actions: release `Juice.exe` built from the source by GitHub, with its SHA-256 | planned |
+| 8 | **Automatic builds** with GitHub Actions: release `Juice.exe` built from the source by GitHub, with its SHA-256 | ✅ done |
 | 9 | **winget**: `winget install Juice` | planned |
 
 Not planned: automatic update checks (Juice never touches the internet) and Razer / Corsair / SteelSeries
@@ -36,7 +36,7 @@ serviço em segundo plano e sem acesso à internet.
 | 5 | **Aviso de carga completa** quando um dispositivo carregando chega a 100% (ligado por padrão) | ✅ feito |
 | 6 | **Um ícone na bandeja por dispositivo** (opcional) | ✅ feito |
 | 7 | **Modo portátil**: um `juice.ini` ao lado do `Juice.exe` é usado no lugar de `%APPDATA%\Juice` | ✅ feito |
-| 8 | **Compilação automática** com GitHub Actions: o `Juice.exe` das releases compilado pelo GitHub a partir do código, com o SHA-256 | planejado |
+| 8 | **Compilação automática** com GitHub Actions: o `Juice.exe` das releases compilado pelo GitHub a partir do código, com o SHA-256 | ✅ feito |
 | 9 | **winget**: `winget install Juice` | planejado |
 
 Fora do plano: verificação automática de atualizações (o Juice nunca acessa a internet) e dispositivos

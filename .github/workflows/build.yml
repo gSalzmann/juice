@@ -1,0 +1,46 @@
+# Builds Juice on every push and pull request, and attaches the executable built from the tagged
+# source to each published release (so the release binary always matches the code).
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: write   # upload the release asset
+
+jobs:
+  build:
+    runs-on: windows-2022   # Visual Studio 2022 with the C++ workload and the Windows SDK
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: cmd
+        run: build.bat
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash build\Juice.exe -Algorithm SHA256).Hash
+          "$hash  Juice.exe" | Set-Content build\Juice.exe.sha256 -Encoding ascii
+          "Juice.exe SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "Size: $((Get-Item build\Juice.exe).Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Juice
+          path: |
+            build/Juice.exe
+            build/Juice.exe.sha256
+            build/probe.exe
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" build/Juice.exe build/Juice.exe.sha256 --clobber
