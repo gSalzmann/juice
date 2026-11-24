@@ -10,6 +10,18 @@ de mouses, teclados e fones sem fio — sem depender de software do fabricante (
 - Tela de configuração: dispositivos visíveis, intervalo de atualização, limite de aviso, iniciar com o Windows
 - ~0,5 MB de working set, executável de ~200 KB
 
+## Wireless Bar (barra de tarefas)
+
+Alternativa à bandeja: `WirelessBar.exe` fica aberto como um programa normal, com um botão na barra de
+tarefas que mostra a bateria de um dispositivo:
+
+- Barra de progresso do botão = % de bateria (verde ≥ 30%, amarelo 15–29%, vermelho < 15%)
+- Selo no ícone com o número (ou um raio quando carregando); o título mostra "Nome — 97%"
+- Ícone do botão com ilustração do tipo de dispositivo
+- Dispositivo exibido: automático (menor bateria) ou escolhido nas configurações
+- Clique no botão abre uma janela compacta com todos os dispositivos, barra de nível e status
+- Configurações próprias em `%APPDATA%\WirelessTray\bar.ini`; "Iniciar com o Windows" abre minimizado
+
 ## Dispositivos suportados
 
 | Fonte | Como | Testado com |
@@ -30,8 +42,10 @@ build.bat
 Gera em `build\`:
 
 - `WirelessTray.exe` — o app de bandeja
+- `WirelessBar.exe` — o app da barra de tarefas
 - `probe.exe` — diagnóstico em linha de comando (lista dispositivos e baterias)
-- `iconpreview.exe` — renderiza os ícones ampliados num BMP (desenvolvimento)
+- `iconpreview.exe` — renderiza os ícones da bandeja ampliados num BMP (desenvolvimento)
+- `illustpreview.exe` — renderiza as ilustrações e selos da barra de tarefas num BMP (desenvolvimento)
 
 ## Configuração
 
