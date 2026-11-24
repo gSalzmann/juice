@@ -49,6 +49,9 @@ public:
 
 private:
     Device& FindOrAdd(const std::wstring& key);
+    // Moves everything stored under an old key (name, kind, hidden, taskbar choice) to the device's
+    // real key and drops the old entry. Returns true if the config changed.
+    bool Adopt(const std::wstring& from, const std::wstring& to);
 
     Config& cfg_;
     std::vector<Device> devices_;

@@ -15,6 +15,8 @@ struct Config {
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
     std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")
+    std::map<std::wstring, std::wstring> slots;   // HID++ receiver slot / interface key -> device key (serial) seen there
+    std::map<std::wstring, std::wstring> aliases; // Bluetooth key -> HID++ device key of the same physical device
 
     void Load();
     void Save() const;

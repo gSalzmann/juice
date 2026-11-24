@@ -1,5 +1,6 @@
 #include "devices.h"
 
+#include <algorithm>
 #include <memory>
 
 namespace {
@@ -62,6 +63,24 @@ bool DeviceManager::IsHidden(const std::wstring& key) const {
     return it != cfg_.hidden.end() && it->second;
 }
 
+bool DeviceManager::Adopt(const std::wstring& from, const std::wstring& to) {
+    bool changed = false;
+    auto move = [&](auto& m) {
+        auto it = m.find(from);
+        if (it == m.end()) return;
+        if (m.find(to) == m.end()) m[to] = it->second;
+        m.erase(it);
+        changed = true;
+    };
+    move(cfg_.known);
+    move(cfg_.kinds);
+    move(cfg_.hidden);
+    if (cfg_.barDevice == from) { cfg_.barDevice = to; changed = true; }
+    devices_.erase(std::remove_if(devices_.begin(), devices_.end(),
+                                  [&](const Device& d) { return d.key == from; }), devices_.end());
+    return changed;
+}
+
 Kind DeviceManager::KnownKind(const std::wstring& key) const {
     auto it = cfg_.kinds.find(key);
     if (it != cfg_.kinds.end())
@@ -95,17 +114,61 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         }
     };
 
-    for (auto& h : r->hid) {
-        Device& d = FindOrAdd(h.key);
-        seen.push_back(h.key);
+    // A device is keyed by its serial when it reports one, so the same mouse is one row whether it is
+    // on its dongle or on Bluetooth, and two dongles of the same model never mix their devices up.
+    // A slot that does not answer (asleep) is resolved through the serial last seen there.
+    auto idOf = [&](const HidppDeviceInfo& h) -> std::wstring {
+        if (!h.unit.empty()) {
+            if (cfg_.slots[h.key] != h.unit) { cfg_.slots[h.key] = h.unit; knownChanged = true; }
+            if (h.key != h.unit && Adopt(h.key, h.unit)) knownChanged = true;
+            // Receiver keys before 1.1 had no receiver hash ("hidpp:C547:1"); take that entry over only
+            // if it carries this device's name, since two dongles of the same model shared it.
+            if (std::count(h.key.begin(), h.key.end(), L':') == 3) {
+                std::wstring legacy = h.key.substr(0, h.key.rfind(L':'));
+                auto it = cfg_.known.find(legacy);
+                if (it != cfg_.known.end() && it->second == h.name && Adopt(legacy, h.unit)) knownChanged = true;
+            }
+            // The Bluetooth entry of the same physical device (BLE mice) shares the container id.
+            if (!h.container.empty())
+                for (auto& b : r->bt)
+                    if (b.key == L"bt:" + h.container && cfg_.aliases[b.key] != h.unit) {
+                        cfg_.aliases[b.key] = h.unit;
+                        Adopt(b.key, h.unit);
+                        knownChanged = true;
+                    }
+            return h.unit;
+        }
+        auto it = cfg_.slots.find(h.key);
+        return it != cfg_.slots.end() && !it->second.empty() ? it->second : h.key;
+    };
+
+    // Answers first: an asleep dongle slot must not override the same mouse answering over Bluetooth.
+    std::vector<const HidppDeviceInfo*> order;
+    for (auto& h : r->hid) if (h.online && h.battery.percent >= 0) order.push_back(&h);
+    for (auto& h : r->hid) if (!(h.online && h.battery.percent >= 0)) order.push_back(&h);
+    std::vector<std::wstring> answered;
+    auto in = [](const std::vector<std::wstring>& v, const std::wstring& k) {
+        return std::find(v.begin(), v.end(), k) != v.end();
+    };
+
+    for (const HidppDeviceInfo* hp : order) {
+        const HidppDeviceInfo& h = *hp;
+        std::wstring id = idOf(h);
+        if (in(answered, id)) continue;
+        // A slot never seen answering has no name to show; wait until it wakes up.
+        if (!Find(id) && cfg_.known.find(id) == cfg_.known.end() && !(h.online && h.battery.percent >= 0)) continue;
+        Device& d = FindOrAdd(id);
+        seen.push_back(id);
         d.asleep = false;
+        // Name and type come from the device even when its battery cannot be read (headset turned off).
+        if (h.online && !h.name.empty()) d.name = h.name;
+        if (Kind k = KindFromHidpp(h.deviceType); h.online && k != Kind::Other) d.kind = k;
         if (h.online && h.battery.percent >= 0) {
-            if (!h.name.empty()) d.name = h.name;
-            if (Kind k = KindFromHidpp(h.deviceType); k != Kind::Other) d.kind = k;
             d.percent = h.battery.percent;
             d.charging = h.battery.charging;
             d.lastGood = now;
             d.present = true;
+            answered.push_back(id);
         } else if (h.noResponse) {
             d.present = d.lastGood && now - d.lastGood < SLEEP_GRACE_MS;
             d.asleep = d.present;
@@ -115,6 +178,19 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         remember(d);
     }
     for (auto& b : r->bt) {
+        if (auto al = cfg_.aliases.find(b.key); al != cfg_.aliases.end() && !al->second.empty()) {
+            // Same device as a HID++ one: HID++ wins (it knows the charging state); the Windows
+            // Bluetooth value only fills in when HID++ did not read it this time.
+            if (in(answered, al->second) || !b.connected || b.percent < 0) continue;
+            Device& d = FindOrAdd(al->second);
+            seen.push_back(d.key);
+            d.asleep = false;
+            d.present = true;
+            d.percent = b.percent;
+            d.charging = false;
+            d.lastGood = now;
+            continue;
+        }
         Device& d = FindOrAdd(b.key);
         seen.push_back(b.key);
         if (!b.name.empty()) d.name = b.name;

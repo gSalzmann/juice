@@ -66,9 +66,13 @@ void Config::Load() {
     hidden.clear();
     known.clear();
     kinds.clear();
+    slots.clear();
+    aliases.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
     for (auto& [k, v] : ReadSection(ini, L"devices")) known[k] = v;
     for (auto& [k, v] : ReadSection(ini, L"kinds")) kinds[k] = v;
+    for (auto& [k, v] : ReadSection(ini, L"slots")) slots[k] = v;
+    for (auto& [k, v] : ReadSection(ini, L"aliases")) aliases[k] = v;
 }
 
 void Config::Save() const {
@@ -85,15 +89,16 @@ void Config::Save() const {
     body.push_back(L'\0');
     WriteSection(ini, L"hidden", body);
 
-    body.clear();
-    for (auto& [k, v] : known) { body += k + L"=" + v; body.push_back(L'\0'); }
-    body.push_back(L'\0');
-    WriteSection(ini, L"devices", body);
-
-    body.clear();
-    for (auto& [k, v] : kinds) { body += k + L"=" + v; body.push_back(L'\0'); }
-    body.push_back(L'\0');
-    WriteSection(ini, L"kinds", body);
+    auto writeMap = [&](const wchar_t* section, const std::map<std::wstring, std::wstring>& m) {
+        std::wstring b;
+        for (auto& [k, v] : m) if (!v.empty()) { b += k + L"=" + v; b.push_back(L'\0'); }
+        b.push_back(L'\0');
+        WriteSection(ini, section, b);
+    };
+    writeMap(L"devices", known);
+    writeMap(L"kinds", kinds);
+    writeMap(L"slots", slots);
+    writeMap(L"aliases", aliases);
 }
 
 bool AutostartEnabled(const wchar_t* name) {

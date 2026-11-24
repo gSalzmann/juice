@@ -11,6 +11,8 @@
 #include "hidpp.h"
 
 #include <windows.h>
+#include <initguid.h>
+#include <devpkey.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>
 #include <hidsdi.h>
@@ -23,6 +25,7 @@
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "hid.lib")
 #pragma comment(lib, "cfgmgr32.lib")
+#pragma comment(lib, "ole32.lib")
 
 namespace {
 
@@ -100,6 +103,7 @@ struct Collection {
 
 struct Interface {
     std::wstring parentId;   // USB interface instance id (groups the collections)
+    std::wstring container;  // container id of the physical device ("{GUID}")
     uint16_t     pid = 0;
     std::wstring shortPath, longPath;
     DWORD shortIn = 0, shortOut = 0, longIn = 0, longOut = 0;
@@ -218,6 +222,16 @@ std::vector<Interface> EnumerateInterfaces() {
 
         Interface& itf = byParent[parentId];
         itf.parentId = parentId;
+        GUID cid{};
+        DEVPROPTYPE type = 0;
+        ULONG size = sizeof(cid);
+        if (itf.container.empty() &&
+            CM_Get_DevNode_PropertyW(parent, &DEVPKEY_Device_ContainerId, &type, (PBYTE)&cid, &size, 0) == CR_SUCCESS &&
+            type == DEVPROP_TYPE_GUID) {
+            wchar_t s[64];
+            StringFromGUID2(cid, s, 64);
+            itf.container = s;
+        }
         itf.pid = attr.ProductID;
         if (caps.OutputReportByteLength == 7) {
             itf.shortPath = path; itf.shortIn = caps.InputReportByteLength; itf.shortOut = caps.OutputReportByteLength;
@@ -339,8 +353,16 @@ void ProbeDevice(Channel& ch, const Interface& itf, uint8_t dev, std::vector<Hid
 
     HidppDeviceInfo d;
     wchar_t key[64];
-    swprintf_s(key, L"hidpp:%04X:%u", itf.pid, dev);
+    if (dev == 0xFF) {
+        swprintf_s(key, L"hidpp:%04X:%u", itf.pid, dev);
+    } else {
+        // Two receivers of the same model (e.g. two LIGHTSPEED dongles) must not share keys.
+        uint32_t h = 2166136261u;                        // FNV-1a of the receiver instance id
+        for (wchar_t c : itf.parentId) { h ^= (uint32_t)towupper(c); h *= 16777619u; }
+        swprintf_s(key, L"hidpp:%04X:%u:%08X", itf.pid, dev, h);
+    }
     d.key = key;
+    d.container = itf.container;
     d.receiverPid = itf.pid;
     d.index = dev;
 
@@ -364,7 +386,18 @@ void ProbeDevice(Channel& ch, const Interface& itf, uint8_t dev, std::vector<Hid
         d.name = ReadName(ch, dev, fi);
         if (ch.Request(dev, fi, 2, nullptr, 0, r) == Channel::OK) d.deviceType = r[0];
     }
-    Log(L"    name=\"%s\" type=%d", d.name.c_str(), d.deviceType);
+    if (uint8_t fi = GetFeatureIndex(ch, dev, 0x0003)) {      // DEVICE_INFORMATION: unit id (serial)
+        if (ch.Request(dev, fi, 0, nullptr, 0, r) == Channel::OK) {
+            uint32_t unit = (uint32_t)r[1] << 24 | r[2] << 16 | r[3] << 8 | r[4];
+            if (unit && unit != 0xFFFFFFFF) {
+                wchar_t u[32];
+                swprintf_s(u, L"hidpp:%08X", unit);
+                d.unit = u;
+            }
+        }
+    }
+    Log(L"    name=\"%s\" type=%d unit=%s container=%s", d.name.c_str(), d.deviceType,
+        d.unit.empty() ? L"-" : d.unit.c_str() + 6, d.container.c_str());
     ReadBattery(ch, dev, d);
     out.push_back(d);
 }

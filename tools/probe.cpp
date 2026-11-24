@@ -13,9 +13,9 @@ int wmain() {
     auto bts = BtBatteryScan(LogLine);
     wprintf(L"\n=== %zu HID++ device(s), %zu Bluetooth device(s) ===\n", devs.size(), bts.size());
     for (auto& d : devs) {
-        wprintf(L"%-20s %-38s online=%d asleep=%d type=%d feature=0x%04X battery=%d%% charging=%d\n",
+        wprintf(L"%-30s %-38s online=%d asleep=%d type=%d feature=0x%04X battery=%d%% charging=%d unit=%s\n",
                 d.key.c_str(), d.name.c_str(), d.online, d.noResponse, d.deviceType, d.batteryFeature,
-                d.battery.percent, d.battery.charging);
+                d.battery.percent, d.battery.charging, d.unit.empty() ? L"-" : d.unit.c_str());
     }
     for (auto& b : bts) {
         wprintf(L"%-20s %-38s connected=%d battery=%d%%\n", b.key.c_str(), b.name.c_str(), b.connected, b.percent);

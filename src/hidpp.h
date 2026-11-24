@@ -11,7 +11,9 @@ struct BatteryInfo {
 };
 
 struct HidppDeviceInfo {
-    std::wstring key;      // stable id, e.g. "hidpp:046D:C547:1"
+    std::wstring key;      // where it was found: "hidpp:C547:1:<receiver hash>" (receiver slot) or "hidpp:0A5B:255" (direct)
+    std::wstring unit;     // the device itself, from its serial (feature 0x0003): "hidpp:1A2B3C4D"; empty if unknown
+    std::wstring container;// Windows container id of the interface ("{GUID}"), shared with its Bluetooth entry
     std::wstring name;     // device marketing name (feature 0x0005)
     uint16_t     receiverPid = 0;
     uint8_t      index = 0;          // 1..6 on a receiver, 0xFF for direct devices
