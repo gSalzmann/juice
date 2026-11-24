@@ -43,7 +43,7 @@ float Polygon(float x, float y, const float* xy, int n);                        
 // Detailed device illustration on a 32x32 design grid.
 void DrawIllustration(Painter& p, Kind kind);
 
-// Battery level colors shared by the taskbar app: green >= 30, amber 15..29, red < 15.
+// Battery level colors of the taskbar app: blue >= 30, amber 15..29, red < 15, green when charging.
 uint32_t LevelColor(int percent, bool charging);
 
 // Icons (caller owns the HICON).
