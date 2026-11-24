@@ -1,13 +1,16 @@
-// Settings stored in %APPDATA%\WirelessTray\config.ini
+// Settings stored in %APPDATA%\WirelessTray\<file>
 #pragma once
 #include <map>
 #include <string>
 
 struct Config {
+    std::wstring file = L"config.ini";  // ini file name inside %APPDATA%\WirelessTray
+
     int  intervalMin  = 5;      // polling interval in minutes
     bool lowWarning   = true;
     int  lowThreshold = 15;     // percent
-    bool colorLevels  = false;  // blue / orange / red number by battery level
+    bool colorLevels  = false;  // tray: blue / orange / red number by battery level
+    std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery)
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
 
@@ -15,5 +18,6 @@ struct Config {
     void Save() const;
 };
 
-bool AutostartEnabled();
-void SetAutostart(bool on);
+// Autostart through HKCU\...\Run. `name` is the registry value, `args` is appended to the exe path.
+bool AutostartEnabled(const wchar_t* name);
+void SetAutostart(const wchar_t* name, bool on, const wchar_t* args = L"");

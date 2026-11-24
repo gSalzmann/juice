@@ -4,13 +4,12 @@
 #include <commctrl.h>
 #include <dbt.h>
 
-#include <memory>
+#include <map>
 #include <string>
 #include <vector>
 
-#include "btbattery.h"
 #include "config.h"
-#include "hidpp.h"
+#include "devices.h"
 #include "icon.h"
 #include "resource.h"
 
@@ -25,81 +24,38 @@ constexpr UINT WM_APP_SCANDONE = WM_APP + 2;
 constexpr UINT_PTR TIMER_POLL  = 1;
 constexpr UINT_PTR TIMER_SOON  = 2;   // debounced refresh after device change / resume
 constexpr UINT APP_ICON_ID     = 0;   // fallback icon shown when no device icon is visible
-constexpr ULONGLONG SLEEP_GRACE_MS = 60ull * 60 * 1000;  // keep a sleeping device visible for 1h
+const wchar_t* AUTOSTART_NAME  = L"WirelessTray";
 
 enum MenuId : UINT { ID_REFRESH = 100, ID_SETTINGS, ID_EXIT };
 
-struct Device {
-    std::wstring key, name;
-    Kind  kind = Kind::Other;
-    int   percent = -1;
-    bool  charging = false;
-    bool  present = false;        // should be displayed (online, or sleeping within grace period)
-    ULONGLONG lastGood = 0;       // tick of the last successful reading
-    bool  lowNotified = false;
-
-    UINT  iconId = 0;
-    bool  shown = false;          // icon currently in the tray
+// Per-device tray icon state.
+struct TrayIcon {
+    UINT  id = 0;
+    bool  shown = false;
     HICON hIcon = nullptr;
     int   drawnPercent = -2;
     bool  drawnCharging = false;
 };
 
-struct ScanResult {
-    std::vector<HidppDeviceInfo> hid;
-    std::vector<BtDeviceInfo>    bt;
-};
-
 HWND   g_hwnd;
 UINT   g_taskbarCreated;
 Config g_cfg;
-std::vector<Device> g_devices;
+DeviceManager g_dm(g_cfg);
+std::map<std::wstring, TrayIcon> g_icons;
 UINT   g_nextIconId = 1;
-bool   g_scanning = false, g_rescan = false;
 bool   g_appIconShown = false;
 HICON  g_appIcon = nullptr;
 HWND   g_settingsDlg = nullptr;
 
-// ---------------------------------------------------------------------------------------------
-Kind KindFromHidpp(int t) {
-    switch (t) {
-        case 0: case 2:         return Kind::Keyboard;
-        case 3: case 4: case 5: return Kind::Mouse;
-        case 8:                 return Kind::Headset;
-        default:                return Kind::Other;
-    }
-}
-
-Kind KindFromBt(int major, int minor) {
-    if (major == 4) return Kind::Headset;            // audio/video
-    if (major == 5) {                                 // peripheral
-        int sub = (minor >> 4) & 3;
-        if (sub == 2) return Kind::Mouse;
-        if (sub == 1 || sub == 3) return Kind::Keyboard;
-    }
-    return Kind::Other;
-}
-
-Device& FindOrAdd(const std::wstring& key) {
-    for (auto& d : g_devices) if (d.key == key) return d;
-    Device d;
-    d.key = key;
-    d.iconId = g_nextIconId++;
-    auto it = g_cfg.known.find(key);
-    if (it != g_cfg.known.end()) d.name = it->second;
-    g_devices.push_back(d);
-    return g_devices.back();
-}
-
-bool IsHidden(const std::wstring& key) {
-    auto it = g_cfg.hidden.find(key);
-    return it != g_cfg.hidden.end() && it->second;
-}
-
 std::wstring Tooltip(const Device& d) {
-    std::wstring t = d.name.empty() ? d.key : d.name;
-    t += L" — " + std::to_wstring(d.percent) + L"%";
+    std::wstring t = d.Label() + L" — " + std::to_wstring(d.percent) + L"%";
     if (d.charging) t += L" (carregando)";
+    return t;
+}
+
+TrayIcon& IconFor(const std::wstring& key) {
+    TrayIcon& t = g_icons[key];
+    if (!t.id) t.id = g_nextIconId++;
     return t;
 }
 
@@ -139,41 +95,36 @@ void Remove(UINT id, bool& shown) {
     shown = false;
 }
 
-void Notify(const Device& d) {
+void Notify(UINT id, const Device& d) {
     NOTIFYICONDATAW nid;
-    FillNid(nid, d.iconId);
+    FillNid(nid, id);
     nid.uFlags = NIF_INFO;
     nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
     wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
-    std::wstring msg = (d.name.empty() ? d.key : d.name) + L": " + std::to_wstring(d.percent) + L"%";
+    std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%";
     wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 void UpdateIcons(bool forceRedraw = false) {
     bool anyShown = false;
-    for (auto& d : g_devices) {
-        bool want = d.present && d.percent >= 0 && !IsHidden(d.key);
+    for (auto& d : g_dm.Devices()) {
+        TrayIcon& t = IconFor(d.key);
+        bool want = d.present && d.percent >= 0 && !g_dm.IsHidden(d.key);
         if (!want) {
-            Remove(d.iconId, d.shown);
+            Remove(t.id, t.shown);
             continue;
         }
-        if (forceRedraw || !d.hIcon || d.drawnPercent != d.percent || d.drawnCharging != d.charging) {
-            if (d.hIcon) DestroyIcon(d.hIcon);
-            d.hIcon = MakeTrayIcon(d.kind, d.percent, d.charging, g_cfg.colorLevels);
-            d.drawnPercent = d.percent;
-            d.drawnCharging = d.charging;
+        if (forceRedraw || !t.hIcon || t.drawnPercent != d.percent || t.drawnCharging != d.charging) {
+            if (t.hIcon) DestroyIcon(t.hIcon);
+            t.hIcon = MakeTrayIcon(d.kind, d.percent, d.charging, g_cfg.colorLevels);
+            t.drawnPercent = d.percent;
+            t.drawnCharging = d.charging;
         }
-        ShowOrUpdate(d.iconId, d.hIcon, Tooltip(d), d.shown);
+        ShowOrUpdate(t.id, t.hIcon, Tooltip(d), t.shown);
         anyShown = true;
-
-        // Low battery warning, once per discharge cycle.
-        if (d.charging || d.percent > g_cfg.lowThreshold + 5) d.lowNotified = false;
-        if (g_cfg.lowWarning && !d.charging && d.percent <= g_cfg.lowThreshold && !d.lowNotified) {
-            Notify(d);
-            d.lowNotified = true;
-        }
     }
+    for (Device* d : g_dm.TakeLowBatteryAlerts()) Notify(IconFor(d->key).id, *d);
 
     // Without any device icon there would be no way to reach the menu: show a neutral app icon.
     if (anyShown) {
@@ -183,81 +134,17 @@ void UpdateIcons(bool forceRedraw = false) {
             if (g_appIcon) DestroyIcon(g_appIcon);
             g_appIcon = MakeTrayIcon(Kind::App, -1, false, false);
         }
-        ShowOrUpdate(APP_ICON_ID, g_appIcon, g_scanning ? L"Wireless Tray — procurando dispositivos..."
-                                                        : L"Wireless Tray — nenhum dispositivo", g_appIconShown);
+        ShowOrUpdate(APP_ICON_ID, g_appIcon, g_dm.Scanning() ? L"Wireless Tray — procurando dispositivos..."
+                                                            : L"Wireless Tray — nenhum dispositivo", g_appIconShown);
     }
 }
 
 void RemoveAllIcons() {
-    for (auto& d : g_devices) Remove(d.iconId, d.shown);
+    for (auto& [k, t] : g_icons) Remove(t.id, t.shown);
     Remove(APP_ICON_ID, g_appIconShown);
 }
 
-// ---------------------------------------------------------------------------------------------
-// Scanning (runs on a worker thread; results are posted back to the UI thread)
-
-DWORD WINAPI ScanThread(LPVOID) {
-    auto* r = new ScanResult;
-    r->hid = HidppScan();
-    r->bt  = BtBatteryScan();
-    if (!PostMessageW(g_hwnd, WM_APP_SCANDONE, 0, (LPARAM)r)) delete r;
-    return 0;
-}
-
-void StartScan() {
-    if (g_scanning) { g_rescan = true; return; }
-    g_scanning = true;
-    HANDLE t = CreateThread(nullptr, 64 * 1024, ScanThread, nullptr, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
-    if (t) CloseHandle(t); else g_scanning = false;
-}
-
-void ApplyScan(std::unique_ptr<ScanResult> r) {
-    const ULONGLONG now = GetTickCount64();
-    std::vector<std::wstring> seen;
-    bool knownChanged = false;
-
-    auto remember = [&](Device& d) {
-        if (!d.name.empty() && g_cfg.known[d.key] != d.name) { g_cfg.known[d.key] = d.name; knownChanged = true; }
-    };
-
-    for (auto& h : r->hid) {
-        Device& d = FindOrAdd(h.key);
-        seen.push_back(h.key);
-        if (h.online && h.battery.percent >= 0) {
-            if (!h.name.empty()) d.name = h.name;
-            d.kind = KindFromHidpp(h.deviceType);
-            d.percent = h.battery.percent;
-            d.charging = h.battery.charging;
-            d.lastGood = now;
-            d.present = true;
-        } else if (h.noResponse) {
-            d.present = d.lastGood && now - d.lastGood < SLEEP_GRACE_MS;
-        } else {
-            d.present = false;
-        }
-        remember(d);
-    }
-    for (auto& b : r->bt) {
-        Device& d = FindOrAdd(b.key);
-        seen.push_back(b.key);
-        if (!b.name.empty()) d.name = b.name;
-        d.kind = KindFromBt(b.majorClass, b.minorClass);
-        d.present = b.connected && b.percent >= 0;
-        if (d.present) { d.percent = b.percent; d.charging = false; d.lastGood = now; }
-        remember(d);
-    }
-    // Devices whose receiver/adapter disappeared entirely.
-    for (auto& d : g_devices) {
-        bool found = false;
-        for (auto& k : seen) if (k == d.key) { found = true; break; }
-        if (!found) d.present = false;
-    }
-
-    if (knownChanged) g_cfg.Save();
-    UpdateIcons();
-    SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);  // trim RAM after the scan
-}
-
+void StartScan() { g_dm.StartScan(g_hwnd, WM_APP_SCANDONE); }
 void RestartPollTimer() { SetTimer(g_hwnd, TIMER_POLL, g_cfg.intervalMin * 60u * 1000u, nullptr); }
 
 // ---------------------------------------------------------------------------------------------
@@ -280,8 +167,8 @@ void InitDeviceList(HWND list, DlgState& st) {
 
     // Current devices first, then remembered ones that are offline.
     std::vector<std::pair<std::wstring, std::wstring>> rows;  // key, name
-    for (auto& d : g_devices)
-        if (!d.name.empty() || d.present) rows.emplace_back(d.key, d.name.empty() ? d.key : d.name);
+    for (auto& d : g_dm.Devices())
+        if (!d.name.empty() || d.present) rows.emplace_back(d.key, d.Label());
     for (auto& [k, n] : g_cfg.known) {
         bool dup = false;
         for (auto& r : rows) if (r.first == k) { dup = true; break; }
@@ -298,11 +185,10 @@ void InitDeviceList(HWND list, DlgState& st) {
         ListView_InsertItem(list, &it);
 
         std::wstring status = L"desconectado";
-        for (auto& d : g_devices)
-            if (d.key == key && d.present && d.percent >= 0)
-                status = std::to_wstring(d.percent) + L"%" + (d.charging ? L" ⚡" : L"");
+        if (Device* d = g_dm.Find(key); d && d->present && d->percent >= 0)
+            status = std::to_wstring(d->percent) + L"%" + (d->charging ? L" ⚡" : L"");
         ListView_SetItemText(list, i, 1, (LPWSTR)status.c_str());
-        ListView_SetCheckState(list, i, !IsHidden(key));
+        ListView_SetCheckState(list, i, !g_dm.IsHidden(key));
         ++i;
     }
 }
@@ -319,7 +205,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETRANGE32, 5, 50);
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETPOS32, 0, g_cfg.lowThreshold);
         CheckDlgButton(dlg, IDC_LOWWARN, g_cfg.lowWarning ? BST_CHECKED : BST_UNCHECKED);
-        CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled() ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         SetForegroundWindow(dlg);
@@ -345,7 +231,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
-            if (autostart != AutostartEnabled()) SetAutostart(autostart);
+            if (autostart != AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart);
             g_cfg.Save();
             RestartPollTimer();
             UpdateIcons(true);
@@ -375,14 +261,14 @@ void OpenSettings() {
 void ShowMenu(POINT pt) {
     HMENU m = CreatePopupMenu();
     bool any = false;
-    for (auto& d : g_devices) {
+    for (auto& d : g_dm.Devices()) {
         if (!d.present || d.percent < 0) continue;
         AppendMenuW(m, MF_STRING | MF_DISABLED, 0, Tooltip(d).c_str());
         any = true;
     }
     if (!any) AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"Nenhum dispositivo encontrado");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(m, MF_STRING | (g_scanning ? MF_GRAYED : 0), ID_REFRESH, L"Atualizar agora");
+    AppendMenuW(m, MF_STRING | (g_dm.Scanning() ? MF_GRAYED : 0), ID_REFRESH, L"Atualizar agora");
     AppendMenuW(m, MF_STRING, ID_SETTINGS, L"Configurações...");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING, ID_EXIT, L"Sair");
@@ -399,7 +285,7 @@ void ShowMenu(POINT pt) {
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == g_taskbarCreated && msg != 0) {   // Explorer restarted: re-add everything
-        for (auto& d : g_devices) d.shown = false;
+        for (auto& [k, t] : g_icons) t.shown = false;
         g_appIconShown = false;
         UpdateIcons(true);
         return 0;
@@ -417,9 +303,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_APP_SCANDONE:
-        g_scanning = false;
-        ApplyScan(std::unique_ptr<ScanResult>((ScanResult*)lp));
-        if (g_rescan) { g_rescan = false; StartScan(); }
+        g_dm.OnScanDone((ScanResult*)lp);
+        UpdateIcons();
+        SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);  // trim RAM after the scan
         return 0;
     case WM_TIMER:
         if (wp == TIMER_SOON) KillTimer(hwnd, TIMER_SOON);
@@ -480,7 +366,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
         DispatchMessageW(&m);
     }
 
-    for (auto& d : g_devices) if (d.hIcon) DestroyIcon(d.hIcon);
+    for (auto& [k, t] : g_icons) if (t.hIcon) DestroyIcon(t.hIcon);
     if (g_appIcon) DestroyIcon(g_appIcon);
     if (mutex) CloseHandle(mutex);
     return 0;

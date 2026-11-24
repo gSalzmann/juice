@@ -3,26 +3,13 @@
 #include <cmath>
 #include <vector>
 
+#include "digits.h"
+
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "advapi32.lib")
 
 namespace {
-
-// 4x6 pixel digits (bit 3 = left column). Crisp at 16px where TrueType text would blur.
-constexpr int DIGIT_W = 4, DIGIT_H = 6;
-const uint8_t kDigits[10][DIGIT_H] = {
-    {0x6, 0x9, 0x9, 0x9, 0x9, 0x6},  // 0
-    {0x2, 0x6, 0x2, 0x2, 0x2, 0x7},  // 1
-    {0x6, 0x9, 0x1, 0x2, 0x4, 0xF},  // 2
-    {0xE, 0x1, 0x6, 0x1, 0x1, 0xE},  // 3
-    {0x9, 0x9, 0xF, 0x1, 0x1, 0x1},  // 4
-    {0xF, 0x8, 0xE, 0x1, 0x1, 0xE},  // 5
-    {0x6, 0x8, 0xE, 0x9, 0x9, 0x6},  // 6
-    {0xF, 0x1, 0x2, 0x2, 0x4, 0x4},  // 7
-    {0x6, 0x9, 0x6, 0x9, 0x9, 0x6},  // 8
-    {0x6, 0x9, 0x9, 0x7, 0x1, 0x6},  // 9
-};
 
 // Solid device shapes designed on a 16x16 grid, drawn 4x supersampled and box-filtered down,
 // which gives smooth anti-aliased edges using plain GDI.
@@ -147,19 +134,11 @@ HICON MakeTrayIcon(Kind kind, int percent, bool charging, bool colorLevels) {
         char txt[4];
         int len = sprintf_s(txt, "%d", percent > 100 ? 100 : percent);
         const int k = size >= 24 ? size / 12 : 1;            // pixel scale: 16/20px -> 1, 24/32px -> 2
-        const int w = (len * (DIGIT_W + 1) - 1) * k, h = DIGIT_H * k;
+        const int w = DigitsWidth(len, k), h = DIGIT_H * k;
         const int x0 = size - w, y0 = size - h;
-        for (int c = 0; c < len; ++c) {
-            const uint8_t* rows = kDigits[txt[c] - '0'];
-            for (int ry = 0; ry < DIGIT_H; ++ry)
-                for (int rx = 0; rx < DIGIT_W; ++rx)
-                    if (rows[ry] & ((1 << (DIGIT_W - 1)) >> rx))
-                        for (int dy = 0; dy < k; ++dy)
-                            for (int dx = 0; dx < k; ++dx) {
-                                int x = x0 + (c * (DIGIT_W + 1) + rx) * k + dx, y = y0 + ry * k + dy;
-                                if (x >= 0 && x < size && y >= 0 && y < size) numMask[y * size + x] = 255;
-                            }
-        }
+        StampDigits(txt, len, x0, y0, k, [&](int x, int y) {
+            if (x >= 0 && x < size && y >= 0 && y < size) numMask[y * size + x] = 255;
+        });
         for (int y = y0 - k; y < size; ++y)
             for (int x = x0 - k; x < size; ++x)
                 if (x >= 0 && y >= 0) shape[y * size + x] = 0;
