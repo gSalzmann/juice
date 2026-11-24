@@ -8,6 +8,12 @@
 
 namespace {
 
+// 3x5 pixel digits (bit 2 = left column). Crisp at 16px where TrueType text would blur.
+const uint8_t kDigits[10][5] = {
+    {7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7}, {7, 1, 7, 1, 7}, {5, 5, 7, 1, 1},
+    {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 1, 1}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
+};
+
 wchar_t GlyphFor(Kind k) {
     // Codepoints shared by "Segoe Fluent Icons" (Win11) and "Segoe MDL2 Assets" (Win10).
     switch (k) {
@@ -99,36 +105,34 @@ HICON MakeTrayIcon(Kind kind, int percent, bool charging, int lowThreshold) {
     std::vector<uint8_t> glyphMask, numMask(size * size, 0);
     wchar_t glyph = GlyphFor(kind);
 
-    if (percent < 0) {
-        HFONT f = MakeFont(IconFontName(), size, FW_NORMAL);
-        RenderMask(dc, bits, size, &glyph, 1, f, RECT{ 0, 0, size, size }, glyphMask);
-        DeleteObject(f);
-    } else {
-        // Top ~40%: glyph. Bottom ~60%: number.
-        int glyphH = size * 7 / 16;
-        HFONT f = MakeFont(IconFontName(), glyphH, FW_NORMAL);
-        RenderMask(dc, bits, size, &glyph, 1, f, RECT{ 0, 0, size, glyphH }, glyphMask);
-        DeleteObject(f);
+    // Full-size glyph, like the system tray icons (network, volume...).
+    HFONT f = MakeFont(IconFontName(), size, FW_NORMAL);
+    RenderMask(dc, bits, size, &glyph, 1, f, RECT{ 0, 0, size, size }, glyphMask);
+    DeleteObject(f);
 
-        wchar_t txt[4];
-        int len = swprintf_s(txt, L"%d", percent > 100 ? 100 : percent);
-        // Pick the largest font whose text fits the icon width.
-        int px = size * 10 / 16;
-        HFONT nf = nullptr;
-        for (; px >= 6; --px) {
-            nf = MakeFont(L"Segoe UI", px, FW_BOLD);
-            HGDIOBJ o = SelectObject(dc, nf);
-            SIZE ext{};
-            GetTextExtentPoint32W(dc, txt, len, &ext);
-            SelectObject(dc, o);
-            if (ext.cx <= size + 1) break;
-            DeleteObject(nf);
-            nf = nullptr;
+    if (percent >= 0) {
+        // Small pixel-font number in the bottom-right corner, with a transparent knockout
+        // around it so it stays readable on top of the glyph.
+        char txt[4];
+        int len = sprintf_s(txt, "%d", percent > 100 ? 100 : percent);
+        const int k = size >= 24 ? size / 12 : 1;            // pixel scale: 16/20px -> 1, 24px -> 2, 32px -> 2
+        const int w = (len * 4 - 1) * k, h = 5 * k;
+        const int x0 = size - w, y0 = size - h;
+        for (int c = 0; c < len; ++c) {
+            const uint8_t* rows = kDigits[txt[c] - '0'];
+            for (int ry = 0; ry < 5; ++ry)
+                for (int rx = 0; rx < 3; ++rx)
+                    if (rows[ry] & (4 >> rx))
+                        for (int dy = 0; dy < k; ++dy)
+                            for (int dx = 0; dx < k; ++dx) {
+                                int x = x0 + (c * 4 + rx) * k + dx, y = y0 + ry * k + dy;
+                                if (x >= 0 && x < size && y >= 0 && y < size) numMask[y * size + x] = 255;
+                            }
         }
-        if (nf) {
-            RenderMask(dc, bits, size, txt, len, nf, RECT{ 0, glyphH - 1, size, size + 1 }, numMask);
-            DeleteObject(nf);
-        }
+        // Knockout: clear the glyph in a k-pixel ring around the digits' bounding box.
+        for (int y = y0 - k; y < size; ++y)
+            for (int x = x0 - k; x < size; ++x)
+                if (x >= 0 && y >= 0) glyphMask[y * size + x] = 0;
     }
 
     // Compose premultiplied BGRA.
