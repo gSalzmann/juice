@@ -5,33 +5,36 @@
 
 1 24 "app.manifest"
 
-IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 306
+IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 318
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Dispositivo mostrado na barra de tarefas:", IDC_LBL_BARDEVICE, 10, 8, 240, 10
-    COMBOBOX        IDC_BAR_DEVICE, 10, 20, 240, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    // Section titles are drawn bold with a thin line below (SettingsProc).
+    LTEXT           "DISPOSITIVOS", IDC_SEC_DEVICES, 12, 10, 236, 9
+    LTEXT           "Na barra de tarefas", IDC_LBL_BARDEVICE, 12, 30, 100, 9
+    COMBOBOX        IDC_BAR_DEVICE, 112, 28, 136, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "", IDC_DEVICES, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP, 12, 46, 236, 62
+    AUTOCHECKBOX    "Mostrar o último nível dos desconectados", IDC_SHOWLAST, 12, 114, 236, 10
+    AUTOCHECKBOX    "Ler caixas de som JBL (Bluetooth LE)", IDC_JBL, 12, 128, 236, 10
 
-    LTEXT           "Dispositivos exibidos na janela:", IDC_LBL_DEVICES, 10, 42, 240, 10
-    CONTROL         "", IDC_DEVICES, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 10, 54, 240, 74
+    LTEXT           "ÍCONES", IDC_SEC_ICONS, 12, 150, 236, 9
+    AUTOCHECKBOX    "Percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 12, 168, 236, 10
+    AUTOCHECKBOX    "Colorir o número da bandeja pelo nível", IDC_COLORLEVELS, 12, 182, 236, 10
 
-    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 10, 140, 60, 10
-    EDITTEXT        IDC_INTERVAL, 72, 138, 30, 12, ES_NUMBER
+    LTEXT           "ATUALIZAÇÃO E AVISOS", IDC_SEC_REFRESH, 12, 204, 236, 9
+    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 12, 224, 150, 9
+    EDITTEXT        IDC_INTERVAL, 190, 222, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_INTERVAL_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "minutos", IDC_LBL_MINUTES, 106, 140, 40, 10
-
-    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 10, 160, 142, 10
-    EDITTEXT        IDC_THRESHOLD, 154, 158, 30, 12, ES_NUMBER
+    LTEXT           "min", IDC_LBL_MINUTES, 228, 224, 20, 9
+    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 12, 240, 176, 10
+    EDITTEXT        IDC_THRESHOLD, 190, 239, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_THRESHOLD_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "%", -1, 188, 160, 10, 10
+    LTEXT           "%", IDC_LBL_PERCENT, 228, 241, 20, 9
 
-    AUTOCHECKBOX    "Exibir o percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 10, 178, 240, 10
-    AUTOCHECKBOX    "Colorir o número do ícone da bandeja conforme o nível", IDC_COLORLEVELS, 10, 196, 240, 10
-    AUTOCHECKBOX    "Mostrar o último nível de dispositivos desconectados", IDC_SHOWLAST, 10, 214, 240, 10
-    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 10, 232, 200, 10
-    AUTOCHECKBOX    "Ler bateria de caixas de som JBL (Bluetooth LE)", IDC_JBL, 10, 250, 240, 10
+    LTEXT           "GERAL", IDC_SEC_GENERAL, 12, 262, 236, 9
+    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 12, 280, 236, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 146, 282, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 282, 50, 14
+    DEFPUSHBUTTON   "OK", IDOK, 144, 298, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 198, 298, 50, 14
 END

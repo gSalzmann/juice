@@ -7,6 +7,8 @@
 #include <shobjidl.h>
 #include <commctrl.h>
 #include <dwmapi.h>
+#include <uxtheme.h>
+#include <vssym32.h>
 #include <dbt.h>
 
 #include <map>
@@ -24,6 +26,7 @@
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "uxtheme.lib")
 
 namespace {
 
@@ -583,14 +586,10 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
     ListView_SetExtendedListViewStyle(list, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
     RECT rc;
     GetClientRect(list, &rc);
-    LVCOLUMNW col{ LVCF_TEXT | LVCF_WIDTH };
-    const int w2 = MulDiv(80, GetDpiForWindow(list), 96);
-    col.cx = rc.right - w2 - GetSystemMetrics(SM_CXVSCROLL);
-    col.pszText = (LPWSTR)T(L"Dispositivo", L"Device");
+    // One column: the list only chooses which devices are shown (their levels are in the main window).
+    LVCOLUMNW col{ LVCF_WIDTH };
+    col.cx = rc.right;
     ListView_InsertColumn(list, 0, &col);
-    col.cx = w2;
-    col.pszText = (LPWSTR)T(L"Bateria", L"Battery");
-    ListView_InsertColumn(list, 1, &col);
     int i = 0;
     for (auto& [k, n] : all) {
         st.listKeys.push_back(k);
@@ -598,16 +597,104 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
         it.iItem = i;
         it.pszText = (LPWSTR)n.c_str();
         ListView_InsertItem(list, &it);
-        std::wstring status = T(L"desconectado", L"disconnected");
-        if (Device* d = g_dm.Find(k); d && d->present && d->percent >= 0)
-            status = std::to_wstring(d->percent) + L"%" + (d->charging ? L" ⚡" : L"");
-        ListView_SetItemText(list, i, 1, (LPWSTR)status.c_str());
         ListView_SetCheckState(list, i, !g_dm.IsHidden(k));
         ++i;
     }
+    // The column fills the list exactly; room for the scroll bar only when it shows.
+    const bool scroll = i > ListView_GetCountPerPage(list);
+    ListView_SetColumnWidth(list, 0, rc.right - (scroll ? GetSystemMetrics(SM_CXVSCROLL) : 0));
 }
 
-INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
+// Settings dialog look: same background and text colors as the main window, following the Windows
+// theme. Controls use the system's dark themes; checkboxes are custom drawn because a themed checkbox
+// ignores the text color.
+struct DlgLook {
+    Theme   th{};
+    bool    dark = false;
+    HBRUSH  bg = nullptr, field = nullptr;
+    HFONT   section = nullptr;
+    HTHEME  button = nullptr;
+};
+DlgLook g_look;
+
+const int SECTION_IDS[] = { IDC_SEC_DEVICES, IDC_SEC_ICONS, IDC_SEC_REFRESH, IDC_SEC_GENERAL };
+const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_AUTOSTART };
+
+void ApplyDialogLook(HWND dlg) {
+    g_look.dark = !AppsUseLightTheme();
+    g_look.th = CurrentTheme();
+    const Theme& th = g_look.th;
+    g_look.bg = CreateSolidBrush(Cref(th.bg));
+    g_look.field = CreateSolidBrush(Cref(g_look.dark ? 0x2B2B2B : 0xFFFFFF));
+    BOOL dark = g_look.dark;
+    DwmSetWindowAttribute(dlg, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof(dark));
+
+    LOGFONTW lf{};
+    GetObjectW((HFONT)SendMessageW(dlg, WM_GETFONT, 0, 0), sizeof(lf), &lf);
+    lf.lfWeight = FW_SEMIBOLD;
+    g_look.section = CreateFontIndirectW(&lf);
+    for (int id : SECTION_IDS) SendDlgItemMessageW(dlg, id, WM_SETFONT, (WPARAM)g_look.section, FALSE);
+
+    if (g_look.dark) {
+        SetWindowTheme(GetDlgItem(dlg, IDC_BAR_DEVICE), L"DarkMode_CFD", nullptr);
+        SetWindowTheme(GetDlgItem(dlg, IDC_INTERVAL), L"DarkMode_CFD", nullptr);
+        SetWindowTheme(GetDlgItem(dlg, IDC_THRESHOLD), L"DarkMode_CFD", nullptr);
+        SetWindowTheme(GetDlgItem(dlg, IDC_DEVICES), L"DarkMode_ItemsView", nullptr);   // no column dividers
+        for (int id : { IDC_INTERVAL_SPIN, IDC_THRESHOLD_SPIN, IDOK, IDCANCEL })
+            SetWindowTheme(GetDlgItem(dlg, id), L"DarkMode_Explorer", nullptr);
+    }
+    HWND list = GetDlgItem(dlg, IDC_DEVICES);
+    ListView_SetBkColor(list, Cref(g_look.dark ? 0x2B2B2B : 0xFFFFFF));
+    ListView_SetTextBkColor(list, CLR_NONE);
+    ListView_SetTextColor(list, Cref(th.text));
+    g_look.button = OpenThemeData(dlg, g_look.dark ? L"DarkMode_Explorer::Button" : L"Button");
+}
+
+void FreeDialogLook() {
+    if (g_look.bg) DeleteObject(g_look.bg);
+    if (g_look.field) DeleteObject(g_look.field);
+    if (g_look.section) DeleteObject(g_look.section);
+    if (g_look.button) CloseThemeData(g_look.button);
+    g_look = DlgLook{};
+}
+
+// Checkbox: themed box + text in the dialog's text color.
+LRESULT DrawCheckbox(const NMCUSTOMDRAW* cd) {
+    if (cd->dwDrawStage != CDDS_PREPAINT) return CDRF_DODEFAULT;
+    HDC dc = cd->hdc;
+    RECT r = cd->rc;
+    FillRect(dc, &r, g_look.bg);
+    const bool on = SendMessageW(cd->hdr.hwndFrom, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const bool off = (cd->uItemState & CDIS_DISABLED) != 0;
+    const bool down = (cd->uItemState & CDIS_SELECTED) != 0, hot = (cd->uItemState & CDIS_HOT) != 0;
+    const int state = (on ? CBS_CHECKEDNORMAL : CBS_UNCHECKEDNORMAL) + (off ? 3 : down ? 2 : hot ? 1 : 0);
+    SIZE box{ 13, 13 };
+    if (g_look.button) GetThemePartSize(g_look.button, dc, BP_CHECKBOX, state, nullptr, TS_DRAW, &box);
+    RECT br{ r.left, r.top + (r.bottom - r.top - box.cy) / 2, 0, 0 };
+    br.right = br.left + box.cx;
+    br.bottom = br.top + box.cy;
+    if (g_look.button) DrawThemeBackground(g_look.button, dc, BP_CHECKBOX, state, &br, nullptr);
+    else DrawFrameControl(dc, &br, DFC_BUTTON, DFCS_BUTTONCHECK | (on ? DFCS_CHECKED : 0));
+
+    wchar_t text[128];
+    GetWindowTextW(cd->hdr.hwndFrom, text, 128);
+    RECT tr{ br.right + MulDiv(5, GetDpiForWindow(cd->hdr.hwndFrom), 96), r.top, r.right, r.bottom };
+    HGDIOBJ old = SelectObject(dc, (HFONT)SendMessageW(cd->hdr.hwndFrom, WM_GETFONT, 0, 0));
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, Cref(off ? g_look.th.sub : g_look.th.text));
+    DrawTextW(dc, text, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    if ((cd->uItemState & CDIS_FOCUS) && !(SendMessageW(cd->hdr.hwndFrom, WM_QUERYUISTATE, 0, 0) & UISF_HIDEFOCUS)) {
+        RECT fr = tr;
+        DrawTextW(dc, text, -1, &fr, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX | DT_CALCRECT);
+        OffsetRect(&fr, 0, (tr.bottom - tr.top - (fr.bottom - fr.top)) / 2);
+        InflateRect(&fr, 2, 1);
+        DrawFocusRect(dc, &fr);
+    }
+    SelectObject(dc, old);
+    return CDRF_SKIPDEFAULT;
+}
+
+INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     static DlgState* st = nullptr;
     switch (msg) {
     case WM_INITDIALOG:
@@ -615,18 +702,21 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         g_settingsDlg = dlg;
         if (g_en) {   // the dialog resource is written in Portuguese
             SetWindowTextW(dlg, L"Juice — Settings");
-            SetDlgItemTextW(dlg, IDC_LBL_BARDEVICE, L"Device shown on the taskbar:");
-            SetDlgItemTextW(dlg, IDC_LBL_DEVICES, L"Devices shown in the window:");
-            SetDlgItemTextW(dlg, IDC_LBL_EVERY, L"Refresh every");
-            SetDlgItemTextW(dlg, IDC_LBL_MINUTES, L"minutes");
-            SetDlgItemTextW(dlg, IDC_LOWWARN, L"Warn when the battery drops below");
-            SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Show the percentage on the taskbar icon");
-            SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray icon number by battery level");
-            SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
-            SetDlgItemTextW(dlg, IDC_JBL, L"Read the battery of JBL speakers (Bluetooth LE)");
+            SetDlgItemTextW(dlg, IDC_SEC_DEVICES, L"DEVICES");
+            SetDlgItemTextW(dlg, IDC_LBL_BARDEVICE, L"On the taskbar");
             SetDlgItemTextW(dlg, IDC_SHOWLAST, L"Show the last level of disconnected devices");
+            SetDlgItemTextW(dlg, IDC_JBL, L"Read JBL speakers (Bluetooth LE)");
+            SetDlgItemTextW(dlg, IDC_SEC_ICONS, L"ICONS");
+            SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Percentage on the taskbar icon");
+            SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray number by level");
+            SetDlgItemTextW(dlg, IDC_SEC_REFRESH, L"REFRESH AND WARNINGS");
+            SetDlgItemTextW(dlg, IDC_LBL_EVERY, L"Refresh every");
+            SetDlgItemTextW(dlg, IDC_LOWWARN, L"Warn when the battery drops below");
+            SetDlgItemTextW(dlg, IDC_SEC_GENERAL, L"GENERAL");
+            SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
             SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
         }
+        ApplyDialogLook(dlg);
         FillDeviceControls(dlg, *st);
         SendDlgItemMessageW(dlg, IDC_INTERVAL_SPIN, UDM_SETRANGE32, 1, 60);
         SendDlgItemMessageW(dlg, IDC_INTERVAL_SPIN, UDM_SETPOS32, 0, g_cfg.intervalMin);
@@ -639,11 +729,55 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_SHOWLAST, g_cfg.showLast ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
+        EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD_SPIN), g_cfg.lowWarning);
         return TRUE;
+    case WM_CTLCOLORDLG:
+        return (INT_PTR)g_look.bg;
+    case WM_CTLCOLORSTATIC: {   // labels, section titles and the disabled threshold field
+        HDC dc = (HDC)wp;
+        const int id = GetDlgCtrlID((HWND)lp);
+        const bool section = id == IDC_SEC_DEVICES || id == IDC_SEC_ICONS || id == IDC_SEC_REFRESH || id == IDC_SEC_GENERAL;
+        SetTextColor(dc, Cref(section || !IsWindowEnabled((HWND)lp) ? g_look.th.sub : g_look.th.text));
+        SetBkColor(dc, Cref(g_look.th.bg));
+        return (INT_PTR)g_look.bg;
+    }
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:   // number fields and the combo's drop-down list
+        if (!g_look.dark) break;
+        SetTextColor((HDC)wp, Cref(g_look.th.text));
+        SetBkColor((HDC)wp, Cref(0x2B2B2B));
+        return (INT_PTR)g_look.field;
+    case WM_NOTIFY: {
+        const NMHDR* h = (const NMHDR*)lp;
+        if (h->code == NM_CUSTOMDRAW)
+            for (int id : CHECK_IDS)
+                if ((int)h->idFrom == id) {
+                    SetWindowLongPtrW(dlg, DWLP_MSGRESULT, DrawCheckbox((const NMCUSTOMDRAW*)lp));
+                    return TRUE;
+                }
+        break;
+    }
+    case WM_PAINT: {   // thin line under each section title
+        PAINTSTRUCT ps;
+        HDC dc = BeginPaint(dlg, &ps);
+        HBRUSH line = CreateSolidBrush(Cref(g_look.th.track));
+        for (int id : SECTION_IDS) {
+            RECT r;
+            GetWindowRect(GetDlgItem(dlg, id), &r);
+            MapWindowPoints(nullptr, dlg, (POINT*)&r, 2);
+            const int y = r.bottom + MulDiv(4, GetDpiForWindow(dlg), 96);
+            RECT l{ r.left, y, r.right, y + 1 };
+            FillRect(dc, &l, line);
+        }
+        DeleteObject(line);
+        EndPaint(dlg, &ps);
+        return TRUE;
+    }
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case IDC_LOWWARN:
             EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED);
+            EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD_SPIN), IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED);
             return TRUE;
         case IDOK: {
             int sel = (int)SendDlgItemMessageW(dlg, IDC_BAR_DEVICE, CB_GETCURSEL, 0, 0);
@@ -683,6 +817,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         delete st;
         st = nullptr;
         g_settingsDlg = nullptr;
+        FreeDialogLook();
         break;
     }
     return FALSE;

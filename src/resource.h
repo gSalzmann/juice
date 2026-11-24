@@ -11,8 +11,12 @@
 #define IDC_COLORLEVELS     1008
 #define IDC_SHOWNUMBER      1010
 #define IDC_LBL_BARDEVICE   1011
-#define IDC_LBL_DEVICES     1012
 #define IDC_LBL_EVERY       1013
 #define IDC_LBL_MINUTES     1014
 #define IDC_JBL             1015
 #define IDC_SHOWLAST        1016
+#define IDC_SEC_DEVICES     1017
+#define IDC_SEC_ICONS       1018
+#define IDC_SEC_REFRESH     1019
+#define IDC_SEC_GENERAL     1020
+#define IDC_LBL_PERCENT     1021
