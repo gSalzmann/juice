@@ -13,7 +13,8 @@ struct Config {
     std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery, "*" = rotate)
     bool showNumber   = true;   // taskbar app: % badge on the button icon
     bool showLast     = true;   // disconnected devices keep showing their last level (greyed out)
-    bool jbl          = false;  // read JBL speakers over Bluetooth LE (needs a short BLE scan per refresh)
+    bool jbl          = false;
+    bool apple        = false;  // read AirPods / Beats from their Bluetooth LE advertisements  // read JBL speakers over Bluetooth LE (needs a short BLE scan per refresh)
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
     std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")

@@ -496,6 +496,14 @@ void Paint(HDC target) {
         else if (!online)       status = T(L"Desconectado", L"Disconnected");
         else if (d->charging)   status = T(L"Carregando", L"Charging");
         else if (d->asleep)     status = T(L"Em repouso · leitura ", L"Asleep · read ") + Ago(d->lastGood);
+        else if (d->parts[0] >= 0 || d->parts[1] >= 0) {   // earbuds: each one and the case
+            const wchar_t* label[3] = { T(L"E ", L"L "), T(L"D ", L"R "), T(L"estojo ", L"case ") };
+            for (int p = 0; p < 3; ++p) {
+                if (d->parts[p] < 0) continue;
+                if (!status.empty()) status += L" · ";
+                status += label[p] + std::to_wstring(d->parts[p]) + L"%" + (d->partCharging[p] ? L"⚡" : L"");
+            }
+        }
         else                    status = T(L"Atualizado ", L"Updated ") + Ago(d->lastGood);
         if (online && g_taskbar && SelectedDevice() == d) status += T(L"  ·  na barra de tarefas", L"  ·  on the taskbar");
         DrawTextAt(dc, status, RECT{ tx, y + S(48), right, y + S(66) }, DT_LEFT | DT_VCENTER, fSub, th.sub);
@@ -618,7 +626,7 @@ struct DlgLook {
 DlgLook g_look;
 
 const int SECTION_IDS[] = { IDC_SEC_DEVICES, IDC_SEC_ICONS, IDC_SEC_REFRESH, IDC_SEC_GENERAL };
-const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_AUTOSTART };
+const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_APPLE, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_AUTOSTART };
 
 void ApplyDialogLook(HWND dlg) {
     g_look.dark = !AppsUseLightTheme();
@@ -706,6 +714,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             SetDlgItemTextW(dlg, IDC_LBL_BARDEVICE, L"On the taskbar");
             SetDlgItemTextW(dlg, IDC_SHOWLAST, L"Show the last level of disconnected devices");
             SetDlgItemTextW(dlg, IDC_JBL, L"Read JBL speakers (Bluetooth LE)");
+            SetDlgItemTextW(dlg, IDC_APPLE, L"Read AirPods and Beats earbuds (Bluetooth LE)");
             SetDlgItemTextW(dlg, IDC_SEC_ICONS, L"ICONS");
             SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Percentage on the taskbar icon");
             SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray number by level");
@@ -727,6 +736,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_APPLE, g_cfg.apple ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_SHOWLAST, g_cfg.showLast ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD_SPIN), g_cfg.lowWarning);
@@ -795,8 +805,9 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
             g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
-            const bool jblWasOn = g_cfg.jbl;
+            const bool jblWasOn = g_cfg.jbl, appleWasOn = g_cfg.apple;
             g_cfg.jbl = IsDlgButtonChecked(dlg, IDC_JBL) == BST_CHECKED;
+            g_cfg.apple = IsDlgButtonChecked(dlg, IDC_APPLE) == BST_CHECKED;
             g_cfg.showLast = IsDlgButtonChecked(dlg, IDC_SHOWLAST) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
             // Rewritten when on, so older entries (--minimized) pick up the current arguments.
@@ -804,7 +815,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             g_cfg.Save();
             RestartPollTimer();
             RefreshAll();
-            if (g_cfg.jbl && !jblWasOn) StartScan();   // show the speakers right away
+            if ((g_cfg.jbl && !jblWasOn) || (g_cfg.apple && !appleWasOn)) StartScan();   // show them right away
             EndDialog(dlg, IDOK);
             return TRUE;
         }

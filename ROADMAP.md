@@ -9,7 +9,7 @@ background service, no internet access.
 |---|---|---|
 | 1 | **Program icon and version info** in `Juice.exe` (the juice box logo; version, description and copyright in *Properties*) | ✅ done |
 | 2 | **PlayStation controllers** (DualSense, DualShock 4) over Bluetooth, from the battery field of their input report | ✅ done · *untested, no hardware* |
-| 3 | **AirPods and other Apple earbuds**, from the Bluetooth LE advertisements they broadcast (optional, off by default; one row with the lowest earbud, both earbuds and the case in the status) | planned · *untested, no hardware* |
+| 3 | **AirPods and other Apple earbuds**, from the Bluetooth LE advertisements they broadcast (optional, off by default; one row with the lowest earbud, both earbuds and the case in the status) | ✅ done · *untested, no hardware* |
 | 4 | **Time remaining estimate** ("~2 days left") from how fast the level drops | planned |
 | 5 | **Full charge notification** when a charging device reaches 100% (on by default) | planned |
 | 6 | **One tray icon per device** (optional) | planned |
@@ -31,7 +31,7 @@ serviço em segundo plano e sem acesso à internet.
 |---|---|---|
 | 1 | **Ícone e informações de versão** no `Juice.exe` (o logo da caixinha de suco; versão, descrição e copyright em *Propriedades*) | ✅ feito |
 | 2 | **Controles PlayStation** (DualSense, DualShock 4) pelo Bluetooth, a partir do campo de bateria do relatório de entrada | ✅ feito · *não testado, sem o aparelho* |
-| 3 | **AirPods e outros fones da Apple**, pelos anúncios Bluetooth LE que eles transmitem (opcional, desligado por padrão; uma linha com o fone de menor nível, os dois fones e o estojo no status) | planejado · *não testado, sem o aparelho* |
+| 3 | **AirPods e outros fones da Apple**, pelos anúncios Bluetooth LE que eles transmitem (opcional, desligado por padrão; uma linha com o fone de menor nível, os dois fones e o estojo no status) | ✅ feito · *não testado, sem o aparelho* |
 | 4 | **Estimativa de duração** ("~2 dias restantes") pela velocidade com que o nível cai | planejado |
 | 5 | **Aviso de carga completa** quando um dispositivo carregando chega a 100% (ligado por padrão) | planejado |
 | 6 | **Um ícone na bandeja por dispositivo** (opcional) | planejado |

@@ -20,3 +20,4 @@
 #define IDC_SEC_REFRESH     1019
 #define IDC_SEC_GENERAL     1020
 #define IDC_LBL_PERCENT     1021
+#define IDC_APPLE           1022

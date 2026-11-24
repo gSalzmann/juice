@@ -1,7 +1,7 @@
 // Console diagnostic: lists every HID++ / Bluetooth device found and its battery.
 #include "../src/btbattery.h"
 #include "../src/hidpp.h"
-#include "../src/jbl.h"
+#include "../src/ble.h"
 #include "../src/pads.h"
 #include <cstdio>
 #include <fcntl.h>
@@ -13,9 +13,9 @@ int wmain() {
     _setmode(_fileno(stdout), _O_U8TEXT);
     auto devs = HidppScan(LogLine);
     auto bts = BtBatteryScan(LogLine);
-    auto jbls = JblScan(LogLine);
+    auto bles = BleScan(true, true, LogLine);
     auto pads = PadsProbe(25000, LogLine);   // the controller reports its battery about every 20 s
-    wprintf(L"\n=== %zu HID++ device(s), %zu Bluetooth device(s), %zu JBL speaker(s) ===\n", devs.size(), bts.size(), jbls.size());
+    wprintf(L"\n=== %zu HID++ device(s), %zu Bluetooth device(s), %zu Bluetooth LE device(s) ===\n", devs.size(), bts.size(), bles.size());
     for (auto& d : devs) {
         wprintf(L"%-30s %-38s online=%d asleep=%d type=%d feature=0x%04X battery=%d%% charging=%d unit=%s\n",
                 d.key.c_str(), d.name.c_str(), d.online, d.noResponse, d.deviceType, d.batteryFeature,
@@ -24,7 +24,7 @@ int wmain() {
     for (auto& b : bts) {
         wprintf(L"%-20s %-38s connected=%d battery=%d%%\n", b.key.c_str(), b.name.c_str(), b.connected, b.percent);
     }
-    for (auto& j : jbls)
+    for (auto& j : bles)
         wprintf(L"%-30s %-38s battery=%d%% charging=%d\n", j.key.c_str(), j.name.c_str(), j.percent, j.charging);
     for (auto& x : pads)
         wprintf(L"%-30s %-38s battery=%d%% charging=%d\n", x.key.c_str(), x.name.c_str(), x.percent, x.charging);

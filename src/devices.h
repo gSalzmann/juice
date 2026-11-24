@@ -9,7 +9,7 @@
 #include "btbattery.h"
 #include "config.h"
 #include "hidpp.h"
-#include "jbl.h"
+#include "ble.h"
 #include "pads.h"
 #include "icon.h"   // Kind
 
@@ -22,7 +22,9 @@ struct Device {
     bool      asleep = false;     // last scan got no answer (value shown is the last known one)
     ULONGLONG lastGood = 0;       // tick of the last successful reading
     bool      lowNotified = false;
-    bool      wasPresent = false;  // presence at the previous update (to save the last level when it leaves)
+    bool      wasPresent = false;
+    int       parts[3] = { -1, -1, -1 };   // earbuds: left, right, case levels (-1 = unknown / not earbuds)
+    bool      partCharging[3] = { false, false, false };  // presence at the previous update (to save the last level when it leaves)
 
     const std::wstring& Label() const { return name.empty() ? key : name; }
 };
@@ -30,7 +32,7 @@ struct Device {
 struct ScanResult {
     std::vector<HidppDeviceInfo> hid;
     std::vector<BtDeviceInfo>    bt;
-    std::vector<JblDeviceInfo>   jbl;
+    std::vector<BleDeviceInfo>   ble;
 };
 
 class DeviceManager {

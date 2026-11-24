@@ -32,14 +32,14 @@ Kind KindFromBt(int major, int minor) {
 const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset", L"speaker", L"gamepad" };   // Kind order
 constexpr int KIND_COUNT = sizeof(KIND_NAMES) / sizeof(KIND_NAMES[0]);
 
-struct ThreadArgs { HWND hwnd; UINT msg; bool jbl; };
+struct ThreadArgs { HWND hwnd; UINT msg; bool jbl, apple; };
 
 DWORD WINAPI ScanThread(LPVOID p) {
     std::unique_ptr<ThreadArgs> a((ThreadArgs*)p);
     auto* r = new ScanResult;
     r->hid = HidppScan();
     r->bt  = BtBatteryScan();
-    if (a->jbl) r->jbl = JblScan();
+    if (a->jbl || a->apple) r->ble = BleScan(a->jbl, a->apple);
     if (!PostMessageW(a->hwnd, a->msg, 0, (LPARAM)r)) delete r;
     return 0;
 }
@@ -149,7 +149,7 @@ void DeviceManager::StartScan(HWND notify, UINT msg) {
     msg_ = msg;
     if (scanning_) { rescan_ = true; return; }
     scanning_ = true;
-    auto* args = new ThreadArgs{ notify, msg, cfg_.jbl };
+    auto* args = new ThreadArgs{ notify, msg, cfg_.jbl, cfg_.apple };
     HANDLE t = CreateThread(nullptr, 256 * 1024, ScanThread, args, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
     if (t) CloseHandle(t);
     else { delete args; scanning_ = false; }
@@ -258,14 +258,15 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         if (d.present) { d.percent = b.percent; d.charging = false; d.lastGood = now; }
         remember(d);
     }
-    for (auto& j : r->jbl) {
+    for (auto& j : r->ble) {   // JBL speakers and Apple earbuds
         Device& d = FindOrAdd(j.key);
         seen.push_back(j.key);
         if (!j.name.empty()) d.name = j.name;
-        d.kind = Kind::Speaker;
+        d.kind = j.speaker ? Kind::Speaker : Kind::Headset;
         d.asleep = false;
         d.present = j.percent >= 0;
         if (d.present) { d.percent = j.percent; d.charging = j.charging; d.lastGood = now; }
+        for (int i = 0; i < 3; ++i) { d.parts[i] = j.parts[i]; d.partCharging[i] = j.partCharging[i]; }
         remember(d);
     }
     // Devices whose receiver/adapter disappeared entirely (or speakers not advertising: turned off).
