@@ -198,7 +198,7 @@ uint32_t LevelColor(int percent, bool charging) {
     if (charging)      return 0x2EA043;   // green
     if (percent < 15)  return 0xD13438;   // red
     if (percent < 30)  return 0xE3A21A;   // amber
-    return 0x2EA043;                      // green
+    return 0x0078D4;                      // blue (matches the taskbar's normal progress state)
 }
 
 HICON MakeIllustrationIcon(Kind kind, int size) {
