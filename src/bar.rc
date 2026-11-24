@@ -5,7 +5,7 @@
 
 1 24 "app.manifest"
 
-IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 252
+IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 270
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Wireless Bar — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -27,8 +27,9 @@ BEGIN
     LTEXT           "%", -1, 188, 160, 10, 10
 
     AUTOCHECKBOX    "Exibir o percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 10, 178, 240, 10
-    AUTOCHECKBOX    "Iniciar com o Windows (minimizado)", IDC_AUTOSTART, 10, 196, 200, 10
+    AUTOCHECKBOX    "Colorir o número do ícone da bandeja conforme o nível", IDC_COLORLEVELS, 10, 196, 240, 10
+    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 10, 214, 200, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 146, 228, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 228, 50, 14
+    DEFPUSHBUTTON   "OK", IDOK, 146, 246, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 246, 50, 14
 END

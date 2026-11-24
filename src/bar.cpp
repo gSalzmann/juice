@@ -1,6 +1,7 @@
 // Wireless Bar: a regular taskbar button whose progress bar shows the battery level of a wireless
 // device (green / yellow / red), with an overlay badge (% or charging bolt) and a compact window
-// listing every device.
+// listing every device. Closing the window sends the app to the notification area (tray icon with
+// the battery level); "Sair" in the tray menu exits.
 #include <windows.h>
 #include <shellapi.h>
 #include <shobjidl.h>
@@ -161,6 +162,78 @@ void ApplyDemo() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Tray mode: closing the window hides it and shows a battery icon in the notification area
+// (the device on the taskbar, drawn like the classic tray icons). Right-click for the menu.
+
+constexpr UINT WM_APP_TRAY = WM_APP + 3, WM_APP_SHOW = WM_APP + 4;
+constexpr UINT TRAY_ID = 2;
+bool  g_inTray = false, g_trayShown = false;
+HICON g_trayIcon = nullptr;
+
+std::wstring TrayTip() {
+    std::wstring tip;
+    for (auto& d : g_dm.Devices()) {
+        if (!d.present || d.percent < 0 || g_dm.IsHidden(d.key)) continue;
+        if (!tip.empty()) tip += L"\n";
+        tip += d.Label() + L": " + std::to_wstring(d.percent) + L"%" + (d.charging ? L" (carregando)" : L"");
+    }
+    if (tip.empty()) tip = g_dm.Scanning() ? L"Wireless Bar — procurando dispositivos..." : L"Wireless Bar — nenhum dispositivo";
+    return tip;
+}
+
+void FillTrayNid(NOTIFYICONDATAW& nid) {
+    nid = NOTIFYICONDATAW{ sizeof(nid) };
+    nid.hWnd = g_hwnd;
+    nid.uID = TRAY_ID;
+    nid.uCallbackMessage = WM_APP_TRAY;
+}
+
+void UpdateTray() {
+    if (!g_inTray) return;
+    const Device* d = SelectedDevice();
+    HICON icon = d ? MakeTrayIcon(d->kind, d->percent, d->charging, g_cfg.colorLevels)
+                   : MakeTrayIcon(Kind::App, -1, false, false);
+    NOTIFYICONDATAW nid;
+    FillTrayNid(nid);
+    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
+    nid.hIcon = icon;
+    wcsncpy_s(nid.szTip, TrayTip().c_str(), _TRUNCATE);
+    if (!g_trayShown) {
+        if (Shell_NotifyIconW(NIM_ADD, &nid)) {
+            nid.uVersion = NOTIFYICON_VERSION_4;
+            Shell_NotifyIconW(NIM_SETVERSION, &nid);
+            g_trayShown = true;
+        }
+    } else {
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+    }
+    if (g_trayIcon) DestroyIcon(g_trayIcon);
+    g_trayIcon = icon;
+}
+
+void RemoveTray() {
+    if (!g_trayShown) return;
+    NOTIFYICONDATAW nid;
+    FillTrayNid(nid);
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+    g_trayShown = false;
+}
+
+void GoToTray() {
+    ShowWindow(g_hwnd, SW_HIDE);
+    g_inTray = true;
+    UpdateTray();
+    SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+}
+
+void RestoreFromTray() {
+    g_inTray = false;
+    RemoveTray();
+    ShowWindow(g_hwnd, IsIconic(g_hwnd) ? SW_RESTORE : SW_SHOW);
+    SetForegroundWindow(g_hwnd);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Taskbar button
 
 void SetWindowIcons(Kind kind) {
@@ -178,6 +251,7 @@ void SetWindowIcons(Kind kind) {
 }
 
 void UpdateTaskbar() {
+    UpdateTray();
     const Device* d = SelectedDevice();
     std::wstring title;
     if (d) {
@@ -214,6 +288,17 @@ void UpdateTaskbar() {
 
 // Low-battery notification through a temporary notification-area icon (removed after a while).
 void NotifyLow(const Device& d) {
+    std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%";
+    if (g_trayShown) {   // already in the tray: use that icon for the balloon
+        NOTIFYICONDATAW nid;
+        FillTrayNid(nid);
+        nid.uFlags = NIF_INFO;
+        nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
+        wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
+        wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+        return;
+    }
     NOTIFYICONDATAW nid{ sizeof(nid) };
     nid.hWnd = g_hwnd;
     nid.uID = 1;
@@ -225,7 +310,6 @@ void NotifyLow(const Device& d) {
     wcscpy_s(nid.szTip, L"Wireless Bar");
     nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
     wcscpy_s(nid.szInfoTitle, L"Bateria baixa");
-    std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%";
     wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
     Shell_NotifyIconW(g_notifyShown ? NIM_MODIFY : NIM_ADD, &nid);
     g_notifyShown = true;
@@ -263,7 +347,7 @@ void ResizeToContent(bool anchorBottom) {
         if (anchorBottom) n.top = n.bottom - h;
         n.right = n.left + w;
         n.bottom = n.top + h;
-        wp.showCmd = SW_SHOWMINNOACTIVE;
+        wp.showCmd = IsWindowVisible(g_hwnd) ? SW_SHOWMINNOACTIVE : SW_HIDE;   // hidden = in the tray
         SetWindowPlacement(g_hwnd, &wp);
     } else {
         RECT cur;
@@ -487,6 +571,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETPOS32, 0, g_cfg.lowThreshold);
         CheckDlgButton(dlg, IDC_LOWWARN, g_cfg.lowWarning ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_SHOWNUMBER, g_cfg.showNumber ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         return TRUE;
@@ -510,8 +595,10 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             if (ok) g_cfg.lowThreshold = v < 5 ? 5 : v > 50 ? 50 : v;
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
             g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
+            g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
-            if (autostart != AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart, L"--minimized");
+            // Rewritten when on, so older entries (--minimized) pick up the current arguments.
+            if (autostart || AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart, L"--tray");
             g_cfg.Save();
             RestartPollTimer();
             RefreshAll();
@@ -532,6 +619,28 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
+void OpenSettings();
+
+void ShowTrayMenu(POINT pt) {
+    enum { ID_OPEN = 1, ID_REFRESH, ID_SETTINGS, ID_EXIT };
+    HMENU m = CreatePopupMenu();
+    AppendMenuW(m, MF_STRING, ID_OPEN, L"Abrir");
+    SetMenuDefaultItem(m, ID_OPEN, FALSE);
+    AppendMenuW(m, MF_STRING, ID_REFRESH, L"Atualizar agora");
+    AppendMenuW(m, MF_STRING, ID_SETTINGS, L"Configurações...");
+    AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(m, MF_STRING, ID_EXIT, L"Sair");
+    SetForegroundWindow(g_hwnd);
+    UINT cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, g_hwnd, nullptr);
+    DestroyMenu(m);
+    switch (cmd) {
+    case ID_OPEN:     RestoreFromTray(); break;
+    case ID_REFRESH:  StartScan(); break;
+    case ID_SETTINGS: OpenSettings(); break;
+    case ID_EXIT:     DestroyWindow(g_hwnd); break;
+    }
+}
+
 void OpenSettings() {
     if (g_settingsDlg) { SetForegroundWindow(g_settingsDlg); return; }
     DialogBoxParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_BAR_SETTINGS), g_hwnd, SettingsProc, 0);
@@ -548,9 +657,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (msg == g_msgTaskbarCreated && msg != 0) {   // Explorer restarted
         g_notifyShown = false;
+        g_trayShown = false;
+        UpdateTray();
         return 0;
     }
     switch (msg) {
+    case WM_APP_TRAY:
+        switch (LOWORD(lp)) {
+        case NIN_SELECT:
+        case NIN_KEYSELECT:
+            RestoreFromTray();
+            break;
+        case WM_CONTEXTMENU:
+            ShowTrayMenu(POINT{ (short)LOWORD(wp), (short)HIWORD(wp) });
+            break;
+        }
+        return 0;
+    case WM_APP_SHOW:   // second launch
+        if (g_inTray) RestoreFromTray();
+        else { ShowWindow(hwnd, SW_RESTORE); SetForegroundWindow(hwnd); }
+        return 0;
+    case WM_CLOSE:
+        GoToTray();
+        return 0;
     case WM_APP_SCANDONE:
         g_dm.OnScanDone((ScanResult*)lp);
         ApplyDemo();
@@ -623,6 +752,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((const wchar_t*)lp, L"ImmersiveColorSet") == 0) {
             ApplyThemeToFrame();
+            UpdateTray();   // tray digits follow the taskbar theme
             InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
@@ -635,6 +765,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_DESTROY:
         RemoveNotifyIcon();
+        RemoveTray();
         PostQuitMessage(0);
         return 0;
     }
@@ -656,8 +787,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
                                                                   : L"WirelessTray.WirelessBar.SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS && g_demoPercent < 0) {
         if (HWND other = FindWindowW(CLASS_NAME, nullptr)) {
-            ShowWindow(other, SW_RESTORE);
-            SetForegroundWindow(other);
+            AllowSetForegroundWindow(ASFW_ANY);
+            PostMessageW(other, WM_APP_SHOW, 0, 0);
         }
         return 0;
     }
@@ -702,9 +833,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
                  mi.rcWork.bottom - (wr.bottom - wr.top) - margin, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
     ApplyDemo();
+    // --tray (autostart) starts closed, in the notification area; --minimized is the old autostart flag.
+    const bool startInTray = cmdLine && (wcsstr(cmdLine, L"--tray") || wcsstr(cmdLine, L"--minimized"));
+    if (startInTray) g_inTray = true;
+    else ShowWindow(g_hwnd, SW_SHOW);
     UpdateTaskbar();
-    const bool minimized = cmdLine && wcsstr(cmdLine, L"--minimized");
-    ShowWindow(g_hwnd, minimized ? SW_SHOWMINNOACTIVE : SW_SHOW);
 
     StartScan();
     RestartPollTimer();
