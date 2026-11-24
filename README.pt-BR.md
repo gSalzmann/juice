@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="docs/img/banner.svg" alt="Juice — a carga da bateria enchendo como suco" width="900">
+  <a href="README.md">English</a> · <b>Português (Brasil)</b>
+</p>
+
+<p align="center">
+  <img src="docs/img/banner.pt-BR.svg" alt="Juice — a carga da bateria enchendo como suco" width="900">
 </p>
 
 <p align="center">
@@ -12,6 +16,7 @@
   <img alt="C++17 Win32" src="https://img.shields.io/badge/C%2B%2B17-Win32%20puro-F4600C?logo=cplusplus&logoColor=white">
   <img alt="Sem dependências" src="https://img.shields.io/badge/depend%C3%AAncias-nenhuma-2EA043">
   <img alt="Memória" src="https://img.shields.io/badge/RAM-~0%2C2%20MB%20na%20bandeja-FFC93C">
+  <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-8B949E"></a>
 </p>
 
 ---
@@ -188,3 +193,7 @@ mouse em repouso, ou o erro devolvido por um headset desligado.
 
 O Juice não acessa a internet, não coleta nada e não instala serviços. Ele só conversa com os seus
 dispositivos pelas APIs HID e Bluetooth do próprio Windows e grava um arquivo `.ini` na sua pasta de usuário.
+
+## Licença
+
+[MIT](LICENSE) — use, modifique e distribua à vontade, mantendo o aviso de copyright.
