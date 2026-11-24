@@ -22,6 +22,8 @@ struct Device {
     bool      asleep = false;     // last scan got no answer (value shown is the last known one)
     ULONGLONG lastGood = 0;       // tick of the last successful reading
     bool      lowNotified = false;
+    bool      chargeCycle = false;   // seen charging since it was last below 95%
+    bool      fullNotified = false;
     bool      wasPresent = false;
     int       parts[3] = { -1, -1, -1 };   // earbuds: left, right, case levels (-1 = unknown / not earbuds)
     bool      partCharging[3] = { false, false, false };  // presence at the previous update (to save the last level when it leaves)
@@ -63,8 +65,9 @@ public:
     bool RecordLast();
     bool keepLast = true;   // false in demo mode, so fake levels never reach the ini
 
-    // Returns devices that crossed the low-battery threshold since the last call (one per discharge).
-    std::vector<Device*> TakeLowBatteryAlerts();
+    // Devices to notify about since the last call: low battery (false; once per discharge) or fully
+    // charged (true; once per charge).
+    std::vector<std::pair<Device*, bool>> TakeAlerts();
 
 private:
     Device& FindOrAdd(const std::wstring& key);

@@ -313,15 +313,19 @@ void UpdateTaskbar() {
     }
 }
 
-// Low-battery notification through a temporary notification-area icon (removed after a while).
-void NotifyLow(const Device& d) {
-    std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%";
+// Low-battery / full-charge notification: a balloon on the tray icon, or on a temporary
+// notification-area icon (removed after a while) when the window is open.
+void Notify(const Device& d, bool full) {
+    const wchar_t* title = full ? T(L"Carga completa", L"Fully charged") : T(L"Bateria baixa", L"Low battery");
+    const DWORD flags = (full ? NIIF_INFO : NIIF_WARNING) | NIIF_RESPECT_QUIET_TIME;
+    std::wstring msg = d.Label() + L": " + std::to_wstring(d.percent) + L"%" +
+                       (full ? T(L" — pode desconectar do carregador", L" — you can unplug it") : L"");
     if (g_trayShown) {   // already in the tray: use that icon for the balloon
         NOTIFYICONDATAW nid;
         FillTrayNid(nid);
         nid.uFlags = NIF_INFO;
-        nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
-        wcscpy_s(nid.szInfoTitle, T(L"Bateria baixa", L"Low battery"));
+        nid.dwInfoFlags = flags;
+        wcscpy_s(nid.szInfoTitle, title);
         wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
         Shell_NotifyIconW(NIM_MODIFY, &nid);
         return;
@@ -335,8 +339,8 @@ void NotifyLow(const Device& d) {
     g_notifyIcon = MakeIllustrationIcon(d.kind, GetSystemMetrics(SM_CXSMICON));
     nid.hIcon = g_notifyIcon;
     wcscpy_s(nid.szTip, L"Juice");
-    nid.dwInfoFlags = NIIF_WARNING | NIIF_RESPECT_QUIET_TIME;
-    wcscpy_s(nid.szInfoTitle, T(L"Bateria baixa", L"Low battery"));
+    nid.dwInfoFlags = flags;
+    wcscpy_s(nid.szInfoTitle, title);
     wcsncpy_s(nid.szInfo, msg.c_str(), _TRUNCATE);
     Shell_NotifyIconW(g_notifyShown ? NIM_MODIFY : NIM_ADD, &nid);
     g_notifyShown = true;
@@ -635,7 +639,7 @@ struct DlgLook {
 DlgLook g_look;
 
 const int SECTION_IDS[] = { IDC_SEC_DEVICES, IDC_SEC_ICONS, IDC_SEC_REFRESH, IDC_SEC_GENERAL };
-const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_APPLE, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_AUTOSTART };
+const int CHECK_IDS[] = { IDC_SHOWLAST, IDC_JBL, IDC_APPLE, IDC_SHOWNUMBER, IDC_COLORLEVELS, IDC_LOWWARN, IDC_FULLWARN, IDC_AUTOSTART };
 
 void ApplyDialogLook(HWND dlg) {
     g_look.dark = !AppsUseLightTheme();
@@ -730,6 +734,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             SetDlgItemTextW(dlg, IDC_SEC_REFRESH, L"REFRESH AND WARNINGS");
             SetDlgItemTextW(dlg, IDC_LBL_EVERY, L"Refresh every");
             SetDlgItemTextW(dlg, IDC_LOWWARN, L"Warn when the battery drops below");
+            SetDlgItemTextW(dlg, IDC_FULLWARN, L"Notify when charging is complete");
             SetDlgItemTextW(dlg, IDC_SEC_GENERAL, L"GENERAL");
             SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
             SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
@@ -746,6 +751,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_APPLE, g_cfg.apple ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_FULLWARN, g_cfg.fullWarning ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_SHOWLAST, g_cfg.showLast ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD_SPIN), g_cfg.lowWarning);
@@ -812,6 +818,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             v = (int)GetDlgItemInt(dlg, IDC_THRESHOLD, &ok, FALSE);
             if (ok) g_cfg.lowThreshold = v < 5 ? 5 : v > 50 ? 50 : v;
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
+            g_cfg.fullWarning = IsDlgButtonChecked(dlg, IDC_FULLWARN) == BST_CHECKED;
             g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
             const bool jblWasOn = g_cfg.jbl, appleWasOn = g_cfg.apple;
@@ -907,13 +914,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_APP_SCANDONE:
         g_dm.OnScanDone((ScanResult*)lp);
         ApplyDemo();
-        for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
+        for (auto [d, full] : g_dm.TakeAlerts()) Notify(*d, full);
         RefreshAll();
         SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
         return 0;
     case WM_APP_PADS:   // a controller reported its battery, connected or left
         g_dm.MergePads();
-        for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
+        for (auto [d, full] : g_dm.TakeAlerts()) Notify(*d, full);
         RefreshAll();
         return 0;
     case WM_TIMER:
@@ -996,7 +1003,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == 'C') g_demoCharging = !g_demoCharging;
             else g_demoPercent = std::min(100, std::max(0, g_demoPercent + (wp == VK_UP ? 5 : -5)));
             ApplyDemo();
-            for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
+            for (auto [d, full] : g_dm.TakeAlerts()) Notify(*d, full);
             RefreshAll();
         }
         return 0;

@@ -330,14 +330,22 @@ void DeviceManager::MergePads() {
     if (changed) cfg_.Save();
 }
 
-std::vector<Device*> DeviceManager::TakeLowBatteryAlerts() {
-    std::vector<Device*> out;
+std::vector<std::pair<Device*, bool>> DeviceManager::TakeAlerts() {
+    std::vector<std::pair<Device*, bool>> out;
     for (auto& d : devices_) {
         if (!d.present || d.percent < 0 || IsHidden(d.key)) continue;
         if (d.charging || d.percent > cfg_.lowThreshold + 5) d.lowNotified = false;
         if (cfg_.lowWarning && !d.charging && d.percent <= cfg_.lowThreshold && !d.lowNotified) {
             d.lowNotified = true;
-            out.push_back(&d);
+            out.push_back({ &d, false });
+        }
+        // Full: some devices keep "charging" at 100%, others switch to "full" (not charging) on the
+        // cable, so it is the end of a charge seen in this session.
+        if (d.charging) d.chargeCycle = true;
+        if (!d.charging && d.percent < 95) d.chargeCycle = d.fullNotified = false;
+        if (cfg_.fullWarning && d.chargeCycle && d.percent >= 100 && !d.fullNotified) {
+            d.fullNotified = true;
+            out.push_back({ &d, true });
         }
     }
     return out;

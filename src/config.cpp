@@ -65,6 +65,7 @@ void Config::Load() {
     showNumber   = GetPrivateProfileIntW(L"general", L"show_number", 1, ini.c_str()) != 0;
     jbl          = GetPrivateProfileIntW(L"general", L"jbl", 0, ini.c_str()) != 0;
     showLast     = GetPrivateProfileIntW(L"general", L"show_last", 1, ini.c_str()) != 0;
+    fullWarning  = GetPrivateProfileIntW(L"general", L"full_warning", 1, ini.c_str()) != 0;
     apple        = GetPrivateProfileIntW(L"general", L"apple", 0, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
@@ -92,6 +93,7 @@ void Config::Save() const {
     WritePrivateProfileStringW(L"general", L"show_number", showNumber ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"jbl", jbl ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"show_last", showLast ? L"1" : L"0", ini.c_str());
+    WritePrivateProfileStringW(L"general", L"full_warning", fullWarning ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"apple", apple ? L"1" : L"0", ini.c_str());
 
     std::wstring body;
