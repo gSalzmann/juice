@@ -175,6 +175,34 @@ void DrawSpeaker(Painter& p) {
     p.Fill([](float x, float y) { return Segment(x, y, 8.5f, 10.6f, 23.5f, 10.6f, 0.6f); }, Hex(0xFFFFFF, 0.35f));
 }
 
+void DrawGamepad(Painter& p) {
+    // Controller seen from the front: body with two grips, sticks, face buttons and a center button.
+    p.Fill([](float x, float y) { return Box(x, y, 16, 28.0f, 12.0f, 1.0f, 1.0f); }, kShadow, 2.0f);
+    auto shape = [](float x, float y, float g) {
+        const float body = Box(x, y, 16, 14.5f, 11.0f + g, 5.6f + g, 5.0f + g);
+        const float l = Segment(x, y, 8.6f, 15.5f, 6.2f, 23.0f, 4.4f + g);
+        const float r = Segment(x, y, 23.4f, 15.5f, 25.8f, 23.0f, 4.4f + g);
+        return std::min(body, std::min(l, r));
+    };
+    p.Fill([=](float x, float y) { return shape(x, y, 1.0f); }, kRimTop, kRimBot, 0, 7, 0, 28);
+    p.Fill([=](float x, float y) { return shape(x, y, 0.0f); }, kBodyTop, kBodyBot, 0, 8, 0, 27);
+    // sticks: graphite well with a blue cap on the left one
+    p.Fill([](float x, float y) { return Circle(x, y, 10.2f, 13.0f, 2.6f); }, kDarkTop, kDarkBot, 0, 10, 0, 16);
+    p.Fill([](float x, float y) { return Circle(x, y, 10.2f, 13.0f, 1.3f); }, kAccentTop, kAccentBot, 0, 12, 0, 14);
+    p.Fill([](float x, float y) { return Circle(x, y, 19.4f, 18.0f, 2.2f); }, kDarkTop, kDarkBot, 0, 16, 0, 20);
+    // d-pad
+    p.Fill([](float x, float y) {
+        return std::min(Box(x, y, 12.6f, 18.0f, 2.0f, 0.65f, 0.3f), Box(x, y, 12.6f, 18.0f, 0.65f, 2.0f, 0.3f));
+    }, kDarkTop, kDarkBot, 0, 16, 0, 20);
+    // face buttons
+    const float bx = 22.0f, by = 12.6f, d = 1.7f;
+    const float pts[4][2] = { { bx, by - d }, { bx + d, by }, { bx, by + d }, { bx - d, by } };
+    for (auto& b : pts)
+        p.Fill([=](float x, float y) { return Circle(x, y, b[0], b[1], 0.95f); }, kDarkTop, kDarkBot, 0, by - 3, 0, by + 3);
+    // center (guide) button
+    p.Fill([](float x, float y) { return Circle(x, y, 16, 11.4f, 1.5f); }, kAccentTop, kAccentBot, 0, 10, 0, 13);
+}
+
 void DrawBattery(Painter& p) {
     p.Fill([](float x, float y) { return Box(x, y, 15, 26.4f, 11.0f, 1.0f, 1.0f); }, kShadow, 2.0f);
     p.Fill([](float x, float y) { return Box(x, y, 14.6f, 16, 12.8f, 8.4f, 3.4f); }, kRimTop, kRimBot, 0, 7, 0, 25);
@@ -209,6 +237,7 @@ void DrawIllustration(Painter& p, Kind kind) {
         case Kind::Headset:  DrawHeadset(p); break;
         case Kind::Keyboard: DrawKeyboard(p); break;
         case Kind::Speaker:  DrawSpeaker(p); break;
+        case Kind::Gamepad:  DrawGamepad(p); break;
         default:             DrawBattery(p); break;
     }
 }

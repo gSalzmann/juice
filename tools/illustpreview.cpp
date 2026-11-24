@@ -9,7 +9,7 @@
 
 int wmain(int argc, wchar_t** argv) {
     const int scale = 4, pad = 8;
-    const Kind kinds[] = { Kind::Mouse, Kind::Headset, Kind::Keyboard, Kind::Speaker, Kind::App };
+    const Kind kinds[] = { Kind::Mouse, Kind::Headset, Kind::Keyboard, Kind::Speaker, Kind::Gamepad, Kind::App };
     const int sizes[] = { 24, 32, 64 };
     struct B { int p; bool c; } badges[] = { {97, false}, {22, false}, {9, false}, {100, false}, {55, true} };
 

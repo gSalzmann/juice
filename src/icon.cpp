@@ -97,6 +97,14 @@ std::vector<uint8_t> RenderShape(Kind kind, int size) {
         c.Fill(false, S::Rect,  12, 4.5f, 12.8f, 11.5f);
         c.Fill(false, S::Round, 6.5f, 7, 9.5f, 9, 0.5f);     // logo
         break;
+    case Kind::Gamepad:
+        c.Fill(true,  S::Round, 1.5f, 4, 14.5f, 10.5f, 3);   // body
+        c.Fill(true,  S::Oval,  0.5f, 6, 6.5f, 14.5f);       // grips
+        c.Fill(true,  S::Oval,  9.5f, 6, 15.5f, 14.5f);
+        c.Fill(false, S::Oval,  3, 5.5f, 6, 8.5f);           // left stick
+        c.Fill(false, S::Oval,  10, 5.5f, 13, 8.5f);         // buttons / right stick
+        c.Fill(false, S::Rect,  7.5f, 9, 8.5f, 10);          // center button
+        break;
     default:                                                 // battery (app / unknown device)
         c.Fill(true,  S::Round, 0.5f, 4, 14, 12, 2);
         c.Fill(false, S::Round, 2, 5.5f, 12.5f, 10.5f, 1);

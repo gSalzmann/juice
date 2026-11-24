@@ -23,12 +23,13 @@ Kind KindFromBt(int major, int minor) {
         int sub = (minor >> 4) & 3;
         if (sub == 2) return Kind::Mouse;
         if (sub == 1 || sub == 3) return Kind::Keyboard;
+        if ((minor & 0x0F) == 2) return Kind::Gamepad;
     }
     return Kind::Other;
 }
 
 // Kind names stored in the ini ([kinds] section); Other is never stored.
-const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset", L"speaker" };   // Kind order
+const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset", L"speaker", L"gamepad" };   // Kind order
 constexpr int KIND_COUNT = sizeof(KIND_NAMES) / sizeof(KIND_NAMES[0]);
 
 struct ThreadArgs { HWND hwnd; UINT msg; bool jbl; };
@@ -230,13 +231,34 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
     }
     // Devices whose receiver/adapter disappeared entirely (or speakers not advertising: turned off).
     for (auto& d : devices_) {
+        if (d.key.rfind(L"xbox:", 0) == 0) continue;   // MergeXbox
         bool found = false;
         for (auto& k : seen) if (k == d.key) { found = true; break; }
         if (!found) d.present = false;
     }
 
     if (knownChanged) cfg_.Save();
+    MergeXbox();
     if (rescan_) { rescan_ = false; StartScan(notify_, msg_); }
+}
+
+void DeviceManager::MergeXbox() {
+    const std::vector<XboxDeviceInfo> pads = XboxSnapshot();
+    bool changed = false;
+    for (auto& d : devices_)
+        if (d.key.rfind(L"xbox:", 0) == 0) d.present = false;
+    for (auto& x : pads) {
+        if (x.percent < 0 && !Find(x.key) && cfg_.known.find(x.key) == cfg_.known.end()) continue;
+        Device& d = FindOrAdd(x.key);
+        d.name = x.name;
+        d.kind = Kind::Gamepad;
+        d.asleep = false;
+        d.present = x.percent >= 0;     // connected but no report yet: shown once it arrives (~20 s)
+        if (d.present) { d.percent = x.percent; d.charging = x.charging; d.lastGood = GetTickCount64(); }
+        if (cfg_.known[d.key] != d.name) { cfg_.known[d.key] = d.name; changed = true; }
+        if (cfg_.kinds[d.key] != L"gamepad") { cfg_.kinds[d.key] = L"gamepad"; changed = true; }
+    }
+    if (changed) cfg_.Save();
 }
 
 std::vector<Device*> DeviceManager::TakeLowBatteryAlerts() {

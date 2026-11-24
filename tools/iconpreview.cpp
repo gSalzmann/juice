@@ -9,7 +9,7 @@ int wmain(int argc, wchar_t** argv) {
     const int s = GetSystemMetrics(SM_CXSMICON), scale = 8, pad = 4;
     struct Sample { Kind k; int p; bool c; } items[] = {
         {Kind::Mouse, 97, false},   {Kind::Headset, 37, false}, {Kind::Headset, 22, false},
-        {Kind::Keyboard, 12, false}, {Kind::Mouse, 55, true}, {Kind::Speaker, 30, false},   {Kind::App, -1, false}};
+        {Kind::Keyboard, 12, false}, {Kind::Mouse, 55, true}, {Kind::Speaker, 30, false}, {Kind::Gamepad, 70, false},   {Kind::App, -1, false}};
     const int n = sizeof(items) / sizeof(items[0]);
     const int W = n * (s + pad), H = s + pad;
 
