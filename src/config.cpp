@@ -22,6 +22,14 @@ std::wstring AppDataDir() {
 }
 
 std::wstring IniPath(const std::wstring& file) {
+    // Portable mode: an ini next to the exe (e.g. on a USB drive) wins over the one in %APPDATA%.
+    wchar_t exe[MAX_PATH];
+    DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    if (n && n < MAX_PATH) {
+        std::wstring local = exe;
+        local = local.substr(0, local.find_last_of(L'\\') + 1) + file;
+        if (GetFileAttributesW(local.c_str()) != INVALID_FILE_ATTRIBUTES) return local;
+    }
     std::wstring dir = AppDataDir() + L"\\Juice";
     CreateDirectoryW(dir.c_str(), nullptr);
     std::wstring path = dir + L"\\" + file;
