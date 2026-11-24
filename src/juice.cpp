@@ -104,7 +104,7 @@ std::vector<Row> VisibleRows() {
             rows.push_back({ d.key, d.Label(), d.kind, &d });
     for (auto& [k, n] : g_cfg.known) {
         if (g_dm.Find(k) || g_dm.IsHidden(k)) continue;
-        rows.push_back({ k, n, Kind::Other, nullptr });
+        rows.push_back({ k, n, g_dm.KnownKind(k), nullptr });
     }
     return rows;
 }

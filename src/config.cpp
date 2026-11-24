@@ -65,8 +65,10 @@ void Config::Load() {
     showNumber   = GetPrivateProfileIntW(L"general", L"show_number", 1, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
+    kinds.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
     for (auto& [k, v] : ReadSection(ini, L"devices")) known[k] = v;
+    for (auto& [k, v] : ReadSection(ini, L"kinds")) kinds[k] = v;
 }
 
 void Config::Save() const {
@@ -87,6 +89,11 @@ void Config::Save() const {
     for (auto& [k, v] : known) { body += k + L"=" + v; body.push_back(L'\0'); }
     body.push_back(L'\0');
     WriteSection(ini, L"devices", body);
+
+    body.clear();
+    for (auto& [k, v] : kinds) { body += k + L"=" + v; body.push_back(L'\0'); }
+    body.push_back(L'\0');
+    WriteSection(ini, L"kinds", body);
 }
 
 bool AutostartEnabled(const wchar_t* name) {

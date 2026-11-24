@@ -25,6 +25,9 @@ Kind KindFromBt(int major, int minor) {
     return Kind::Other;
 }
 
+// Kind names stored in the ini ([kinds] section); Other is never stored.
+const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset" };
+
 struct ThreadArgs { HWND hwnd; UINT msg; };
 
 DWORD WINAPI ScanThread(LPVOID p) {
@@ -49,6 +52,7 @@ Device& DeviceManager::FindOrAdd(const std::wstring& key) {
     d.key = key;
     auto it = cfg_.known.find(key);
     if (it != cfg_.known.end()) d.name = it->second;
+    d.kind = KnownKind(key);
     devices_.push_back(d);
     return devices_.back();
 }
@@ -56,6 +60,13 @@ Device& DeviceManager::FindOrAdd(const std::wstring& key) {
 bool DeviceManager::IsHidden(const std::wstring& key) const {
     auto it = cfg_.hidden.find(key);
     return it != cfg_.hidden.end() && it->second;
+}
+
+Kind DeviceManager::KnownKind(const std::wstring& key) const {
+    auto it = cfg_.kinds.find(key);
+    if (it != cfg_.kinds.end())
+        for (int i = 0; i < 3; i++) if (it->second == KIND_NAMES[i]) return (Kind)i;
+    return Kind::Other;
 }
 
 void DeviceManager::StartScan(HWND notify, UINT msg) {
@@ -78,6 +89,10 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
 
     auto remember = [&](Device& d) {
         if (!d.name.empty() && cfg_.known[d.key] != d.name) { cfg_.known[d.key] = d.name; knownChanged = true; }
+        if (d.kind != Kind::Other && cfg_.kinds[d.key] != KIND_NAMES[(int)d.kind]) {
+            cfg_.kinds[d.key] = KIND_NAMES[(int)d.kind];
+            knownChanged = true;
+        }
     };
 
     for (auto& h : r->hid) {
@@ -86,7 +101,7 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         d.asleep = false;
         if (h.online && h.battery.percent >= 0) {
             if (!h.name.empty()) d.name = h.name;
-            d.kind = KindFromHidpp(h.deviceType);
+            if (Kind k = KindFromHidpp(h.deviceType); k != Kind::Other) d.kind = k;
             d.percent = h.battery.percent;
             d.charging = h.battery.charging;
             d.lastGood = now;
@@ -103,7 +118,7 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         Device& d = FindOrAdd(b.key);
         seen.push_back(b.key);
         if (!b.name.empty()) d.name = b.name;
-        d.kind = KindFromBt(b.majorClass, b.minorClass);
+        if (Kind k = KindFromBt(b.majorClass, b.minorClass); k != Kind::Other) d.kind = k;
         d.asleep = false;
         d.present = b.connected && b.percent >= 0;
         if (d.present) { d.percent = b.percent; d.charging = false; d.lastGood = now; }

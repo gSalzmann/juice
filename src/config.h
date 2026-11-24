@@ -14,6 +14,7 @@ struct Config {
     bool showNumber   = true;   // taskbar app: % badge on the button icon
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
+    std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")
 
     void Load();
     void Save() const;
