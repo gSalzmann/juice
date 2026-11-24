@@ -1,5 +1,6 @@
 #include "icon.h"
 
+#include <cmath>
 #include <vector>
 
 #pragma comment(lib, "gdi32.lib")
@@ -14,54 +15,94 @@ const uint8_t kDigits[10][5] = {
     {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 1, 1}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
 };
 
-wchar_t GlyphFor(Kind k) {
-    // Codepoints shared by "Segoe Fluent Icons" (Win11) and "Segoe MDL2 Assets" (Win10).
-    switch (k) {
-        case Kind::Mouse:    return 0xE962;
-        case Kind::Keyboard: return 0xE765;
-        case Kind::Headset:  return 0xE7F6;
-        case Kind::App:      return 0xE83F;  // battery
-        default:             return 0xE702;  // bluetooth
+// Solid device shapes designed on a 16x16 grid, drawn 4x supersampled and box-filtered down,
+// which gives smooth anti-aliased edges using plain GDI.
+class Canvas {
+public:
+    Canvas(int size, int ss) : size_(size), ss_(ss), n_(size * ss), u_(n_ / 16.0f) {
+        BITMAPINFO bi{};
+        bi.bmiHeader = { sizeof(BITMAPINFOHEADER), n_, -n_, 1, 32, BI_RGB };
+        HDC screen = GetDC(nullptr);
+        dc_ = CreateCompatibleDC(screen);
+        bmp_ = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, (void**)&bits_, nullptr, 0);
+        ReleaseDC(nullptr, screen);
+        old_ = SelectObject(dc_, bmp_);
+        SelectObject(dc_, GetStockObject(NULL_PEN));
+        memset(bits_, 0, (size_t)n_ * n_ * 4);
     }
-}
-
-const wchar_t* IconFontName() {
-    static const wchar_t* name = nullptr;
-    if (!name) {
-        HDC dc = GetDC(nullptr);
-        LOGFONTW lf{};
-        lf.lfCharSet = DEFAULT_CHARSET;
-        wcscpy_s(lf.lfFaceName, L"Segoe Fluent Icons");
-        bool found = false;
-        EnumFontFamiliesExW(dc, &lf, [](const LOGFONTW*, const TEXTMETRICW*, DWORD, LPARAM p) -> int {
-            *(bool*)p = true; return 0; }, (LPARAM)&found, 0);
-        ReleaseDC(nullptr, dc);
-        name = found ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets";
+    ~Canvas() {
+        SelectObject(dc_, old_);
+        DeleteObject(bmp_);
+        DeleteDC(dc_);
     }
-    return name;
-}
 
-// Renders white text on black into `bits` and returns the coverage mask (0..255 per pixel).
-void RenderMask(HDC dc, uint32_t* bits, int size, const wchar_t* text, int len, HFONT font, RECT rc,
-                std::vector<uint8_t>& mask) {
-    memset(bits, 0, size * size * 4);
-    HGDIOBJ old = SelectObject(dc, font);
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, RGB(255, 255, 255));
-    DrawTextW(dc, text, len, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_NOCLIP);
-    SelectObject(dc, old);
-    GdiFlush();
-    mask.resize(size * size);
-    for (int i = 0; i < size * size; ++i) {
-        uint32_t p = bits[i];
-        uint8_t r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
-        mask[i] = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    enum Shape { Rect, Round, Oval };
+    // Paints a shape in grid units. `on` = draw (true) or cut out (false).
+    void Fill(bool on, Shape s, float x0, float y0, float x1, float y1, float r = 0) {
+        SelectObject(dc_, GetStockObject(on ? WHITE_BRUSH : BLACK_BRUSH));
+        int l = P(x0), t = P(y0), rr = P(x1) + 1, b = P(y1) + 1;   // NULL_PEN excludes right/bottom edge
+        switch (s) {
+            case Rect:  Rectangle(dc_, l, t, rr, b); break;
+            case Round: RoundRect(dc_, l, t, rr, b, P(2 * r), P(2 * r)); break;
+            case Oval:  Ellipse(dc_, l, t, rr, b); break;
+        }
     }
-}
 
-HFONT MakeFont(const wchar_t* face, int px, int weight) {
-    return CreateFontW(-px, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                       ANTIALIASED_QUALITY, DEFAULT_PITCH, face);
+    std::vector<uint8_t> Downsample() {
+        GdiFlush();
+        std::vector<uint8_t> m((size_t)size_ * size_);
+        for (int y = 0; y < size_; ++y)
+            for (int x = 0; x < size_; ++x) {
+                unsigned sum = 0;
+                for (int dy = 0; dy < ss_; ++dy)
+                    for (int dx = 0; dx < ss_; ++dx)
+                        sum += (bits_[(y * ss_ + dy) * n_ + x * ss_ + dx] >> 16) & 0xFF;
+                m[y * size_ + x] = (uint8_t)(sum / (ss_ * ss_));
+            }
+        return m;
+    }
+
+private:
+    int P(float v) const { return (int)std::lround(v * u_); }
+    int size_, ss_, n_;
+    float u_;
+    HDC dc_;
+    HBITMAP bmp_;
+    HGDIOBJ old_;
+    uint32_t* bits_ = nullptr;
+};
+
+std::vector<uint8_t> RenderShape(Kind kind, int size) {
+    Canvas c(size, 4);
+    using S = Canvas::Shape;
+    switch (kind) {
+    case Kind::Mouse:
+        c.Fill(true,  S::Round, 3, 0.5f, 12, 15.5f, 4.5f);   // body (capsule)
+        c.Fill(false, S::Rect,  3, 6, 12, 7);                // button / palm split
+        c.Fill(false, S::Rect,  7, 0, 8, 6);                 // left / right button split
+        break;
+    case Kind::Headset:
+        c.Fill(true,  S::Oval,  1, 1, 15, 15);               // headband (ring, upper half)
+        c.Fill(false, S::Oval,  3, 3, 13, 13);
+        c.Fill(false, S::Rect,  0, 8.5f, 16, 16);
+        c.Fill(true,  S::Round, 0.5f, 8, 5.5f, 15.5f, 2);    // ear cups
+        c.Fill(true,  S::Round, 10.5f, 8, 15.5f, 15.5f, 2);
+        break;
+    case Kind::Keyboard:
+        c.Fill(true,  S::Round, 0, 3, 15, 12, 2);            // body
+        for (int row = 0; row < 2; ++row)                    // two rows of keys
+            for (int k = 0; k < 6; ++k)
+                c.Fill(false, S::Rect, 2.0f + 2 * k, 5.0f + 2 * row, 3.0f + 2 * k, 6.0f + 2 * row);
+        c.Fill(false, S::Rect,  4, 9, 11, 10);               // space bar
+        break;
+    default:                                                 // battery (app / unknown device)
+        c.Fill(true,  S::Round, 0.5f, 4, 14, 12, 2);
+        c.Fill(false, S::Round, 2, 5.5f, 12.5f, 10.5f, 1);
+        c.Fill(true,  S::Round, 3, 6.5f, 9, 9.5f, 0.5f);     // charge level
+        c.Fill(true,  S::Round, 14.5f, 6, 15.5f, 10, 0.5f);  // terminal
+        break;
+    }
+    return c.Downsample();
 }
 
 }  // namespace
@@ -81,41 +122,20 @@ HICON MakeTrayIcon(Kind kind, int percent, bool charging, int lowThreshold) {
     COLORREF fg = light ? RGB(0x1A, 0x1A, 0x1A) : RGB(0xFF, 0xFF, 0xFF);
     COLORREF num = fg;
     if (percent >= 0) {
-        if (charging)                   num = light ? RGB(0x10, 0x7C, 0x10) : RGB(0x6C, 0xCB, 0x5F);
+        if (charging)                     num = light ? RGB(0x10, 0x7C, 0x10) : RGB(0x6C, 0xCB, 0x5F);
         else if (percent <= lowThreshold) num = light ? RGB(0xC4, 0x2B, 0x1C) : RGB(0xFF, 0x63, 0x63);
-        else if (percent < 30)          num = light ? RGB(0x9D, 0x5D, 0x00) : RGB(0xFF, 0xC8, 0x3D);
+        else if (percent < 30)            num = light ? RGB(0x9D, 0x5D, 0x00) : RGB(0xFF, 0xC8, 0x3D);
     }
 
-    BITMAPINFO bi{};
-    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
-    bi.bmiHeader.biWidth = size;
-    bi.bmiHeader.biHeight = -size;  // top-down
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 32;
-    bi.bmiHeader.biCompression = BI_RGB;
-
-    HDC screen = GetDC(nullptr);
-    HDC dc = CreateCompatibleDC(screen);
-    void* raw = nullptr;
-    HBITMAP color = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &raw, nullptr, 0);
-    ReleaseDC(nullptr, screen);
-    HGDIOBJ oldBmp = SelectObject(dc, color);
-    uint32_t* bits = (uint32_t*)raw;
-
-    std::vector<uint8_t> glyphMask, numMask(size * size, 0);
-    wchar_t glyph = GlyphFor(kind);
-
-    // Full-size glyph, like the system tray icons (network, volume...).
-    HFONT f = MakeFont(IconFontName(), size, FW_NORMAL);
-    RenderMask(dc, bits, size, &glyph, 1, f, RECT{ 0, 0, size, size }, glyphMask);
-    DeleteObject(f);
+    std::vector<uint8_t> shape = RenderShape(kind, size);
+    std::vector<uint8_t> numMask((size_t)size * size, 0);
 
     if (percent >= 0) {
         // Small pixel-font number in the bottom-right corner, with a transparent knockout
-        // around it so it stays readable on top of the glyph.
+        // around it so it stays readable on top of the shape.
         char txt[4];
         int len = sprintf_s(txt, "%d", percent > 100 ? 100 : percent);
-        const int k = size >= 24 ? size / 12 : 1;            // pixel scale: 16/20px -> 1, 24px -> 2, 32px -> 2
+        const int k = size >= 24 ? size / 12 : 1;            // pixel scale: 16/20px -> 1, 24/32px -> 2
         const int w = (len * 4 - 1) * k, h = 5 * k;
         const int x0 = size - w, y0 = size - h;
         for (int c = 0; c < len; ++c) {
@@ -129,24 +149,25 @@ HICON MakeTrayIcon(Kind kind, int percent, bool charging, int lowThreshold) {
                                 if (x >= 0 && x < size && y >= 0 && y < size) numMask[y * size + x] = 255;
                             }
         }
-        // Knockout: clear the glyph in a k-pixel ring around the digits' bounding box.
         for (int y = y0 - k; y < size; ++y)
             for (int x = x0 - k; x < size; ++x)
-                if (x >= 0 && y >= 0) glyphMask[y * size + x] = 0;
+                if (x >= 0 && y >= 0) shape[y * size + x] = 0;
     }
 
-    // Compose premultiplied BGRA.
+    // Compose premultiplied BGRA into a 32-bit DIB.
+    BITMAPINFO bi{};
+    bi.bmiHeader = { sizeof(BITMAPINFOHEADER), size, -size, 1, 32, BI_RGB };
+    uint32_t* bits = nullptr;
+    HDC screen = GetDC(nullptr);
+    HBITMAP color = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, (void**)&bits, nullptr, 0);
+    ReleaseDC(nullptr, screen);
+
     auto blend = [](COLORREF c, uint8_t a) -> uint32_t {
         uint32_t r = GetRValue(c) * a / 255, g = GetGValue(c) * a / 255, b = GetBValue(c) * a / 255;
         return (uint32_t)a << 24 | r << 16 | g << 8 | b;
     };
-    for (int i = 0; i < size * size; ++i) {
-        uint8_t na = numMask[i], ga = glyphMask[i];
-        bits[i] = na >= ga ? blend(num, na) : blend(fg, ga);
-    }
-    GdiFlush();
-    SelectObject(dc, oldBmp);
-    DeleteDC(dc);
+    for (int i = 0; i < size * size; ++i)
+        bits[i] = numMask[i] ? blend(num, numMask[i]) : blend(fg, shape[i]);
 
     std::vector<uint8_t> maskBits(((size + 15) / 16) * 2 * size, 0);
     HBITMAP mask = CreateBitmap(size, size, 1, 1, maskBits.data());
