@@ -9,10 +9,10 @@ call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>nul || exit /b 1
 cd /d "%~dp0"
 if not exist build\obj mkdir build\obj
 
-set CFLAGS=/nologo /std:c++17 /O1 /Os /GL /Gy /MT /W4 /EHsc /DUNICODE /D_UNICODE /DNDEBUG /Fobuild\obj\ /Fdbuild\obj\
+set CFLAGS=/nologo /utf-8 /std:c++17 /O1 /Os /GL /Gy /MT /W4 /EHsc /DUNICODE /D_UNICODE /DNDEBUG /Fobuild\obj\ /Fdbuild\obj\
 set LFLAGS=/LTCG /OPT:REF /OPT:ICF /MANIFEST:NO
 
-rc /nologo /fo build\obj\app.res src\app.rc || exit /b 1
+rc /nologo /c65001 /fo build\obj\app.res src\app.rc || exit /b 1
 cl %CFLAGS% src\main.cpp src\hidpp.cpp src\btbattery.cpp src\config.cpp src\icon.cpp build\obj\app.res ^
    /Fe:build\WirelessTray.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
 
