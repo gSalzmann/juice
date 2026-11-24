@@ -10,3 +10,4 @@
 #define IDC_THRESHOLD       1006
 #define IDC_THRESHOLD_SPIN  1007
 #define IDC_COLORLEVELS     1008
+#define IDC_SHOWNUMBER      1010

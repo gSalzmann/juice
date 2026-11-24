@@ -10,7 +10,8 @@ struct Config {
     bool lowWarning   = true;
     int  lowThreshold = 15;     // percent
     bool colorLevels  = false;  // tray: blue / orange / red number by battery level
-    std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery)
+    std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery, "*" = rotate)
+    bool showNumber   = true;   // taskbar app: % badge on the button icon
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
 

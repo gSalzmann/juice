@@ -28,7 +28,7 @@ namespace {
 
 constexpr UINT WM_APP_SCANDONE = WM_APP + 1;
 constexpr UINT WM_APP_NOTIFY   = WM_APP + 2;
-constexpr UINT_PTR TIMER_POLL = 1, TIMER_SOON = 2, TIMER_CLOCK = 3, TIMER_NOTIFY_END = 4;
+constexpr UINT_PTR TIMER_POLL = 1, TIMER_SOON = 2, TIMER_CLOCK = 3, TIMER_NOTIFY_END = 4, TIMER_ROTATE = 5;
 const wchar_t* CLASS_NAME     = L"WirelessBarWnd";
 const wchar_t* AUTOSTART_NAME = L"WirelessBar";
 const wchar_t* APP_ID         = L"WirelessTray.WirelessBar";
@@ -103,8 +103,16 @@ std::vector<Row> VisibleRows() {
     return rows;
 }
 
+size_t g_rotateIndex = 0;   // "Todos": position in the rotation, advanced every minute
+
 const Device* SelectedDevice() {
     const Device* best = nullptr;
+    if (g_cfg.barDevice == L"*") {   // rotate between the connected, visible devices
+        std::vector<const Device*> live;
+        for (auto& d : g_dm.Devices())
+            if (d.present && d.percent >= 0 && !g_dm.IsHidden(d.key)) live.push_back(&d);
+        return live.empty() ? nullptr : live[g_rotateIndex % live.size()];
+    }
     for (auto& d : g_dm.Devices()) {
         if (!d.present || d.percent < 0 || g_dm.IsHidden(d.key)) continue;
         if (!g_cfg.barDevice.empty()) {
@@ -183,7 +191,13 @@ void UpdateTaskbar() {
     SetWindowTextW(g_hwnd, title.c_str());
 
     if (!g_taskbar) return;
-    if (d) {
+    if (d && !g_cfg.showNumber && !d->charging) {   // number hidden: only the progress bar
+        TBPFLAG state = d->percent >= 30 ? TBPF_NORMAL : d->percent >= 15 ? TBPF_PAUSED : TBPF_ERROR;
+        g_taskbar->SetProgressValue(g_hwnd, d->percent < 1 ? 1 : d->percent, 100);
+        g_taskbar->SetProgressState(g_hwnd, state);
+        g_taskbar->SetOverlayIcon(g_hwnd, nullptr, nullptr);
+        if (g_badge) { DestroyIcon(g_badge); g_badge = nullptr; }
+    } else if (d) {
         TBPFLAG state = d->charging || d->percent >= 30 ? TBPF_NORMAL : d->percent >= 15 ? TBPF_PAUSED : TBPF_ERROR;
         g_taskbar->SetProgressValue(g_hwnd, d->percent < 1 ? 1 : d->percent, 100);
         g_taskbar->SetProgressState(g_hwnd, state);
@@ -422,7 +436,9 @@ void FillDeviceControls(HWND dlg, DlgState& st) {
     HWND combo = GetDlgItem(dlg, IDC_BAR_DEVICE);
     SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)L"Automático (menor bateria)");
     st.comboKeys.push_back(L"");
-    int sel = 0;
+    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)L"Todos (alterna a cada minuto)");
+    st.comboKeys.push_back(L"*");
+    int sel = g_cfg.barDevice == L"*" ? 1 : 0;
     for (auto& [k, n] : all) {
         SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)n.c_str());
         st.comboKeys.push_back(k);
@@ -470,6 +486,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETRANGE32, 5, 50);
         SendDlgItemMessageW(dlg, IDC_THRESHOLD_SPIN, UDM_SETPOS32, 0, g_cfg.lowThreshold);
         CheckDlgButton(dlg, IDC_LOWWARN, g_cfg.lowWarning ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_SHOWNUMBER, g_cfg.showNumber ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         return TRUE;
@@ -492,6 +509,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             v = (int)GetDlgItemInt(dlg, IDC_THRESHOLD, &ok, FALSE);
             if (ok) g_cfg.lowThreshold = v < 5 ? 5 : v > 50 ? 50 : v;
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
+            g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
             if (autostart != AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart, L"--minimized");
             g_cfg.Save();
@@ -546,6 +564,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case TIMER_POLL: StartScan(); break;
         case TIMER_CLOCK: if (!IsIconic(hwnd)) InvalidateRect(hwnd, nullptr, FALSE); break;
         case TIMER_NOTIFY_END: KillTimer(hwnd, TIMER_NOTIFY_END); RemoveNotifyIcon(); break;
+        case TIMER_ROTATE:
+            if (g_cfg.barDevice == L"*") {
+                ++g_rotateIndex;
+                UpdateTaskbar();
+                InvalidateRect(hwnd, nullptr, FALSE);   // "na barra de tarefas" moves to the next row
+            }
+            break;
         }
         return 0;
     case WM_DEVICECHANGE:
@@ -684,6 +709,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     StartScan();
     RestartPollTimer();
     SetTimer(g_hwnd, TIMER_CLOCK, 60000, nullptr);
+    SetTimer(g_hwnd, TIMER_ROTATE, 60000, nullptr);
 
     MSG m;
     while (GetMessageW(&m, nullptr, 0, 0) > 0) {

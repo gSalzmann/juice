@@ -54,6 +54,7 @@ void Config::Load() {
     wchar_t dev[256]{};
     GetPrivateProfileStringW(L"general", L"bar_device", L"", dev, 256, ini.c_str());
     barDevice = dev;
+    showNumber   = GetPrivateProfileIntW(L"general", L"show_number", 1, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
     for (auto& [k, v] : ReadSection(ini, L"hidden")) hidden[k] = v == L"1";
@@ -67,6 +68,7 @@ void Config::Save() const {
     WritePrivateProfileStringW(L"general", L"low_threshold", std::to_wstring(lowThreshold).c_str(), ini.c_str());
     WritePrivateProfileStringW(L"general", L"color_levels", colorLevels ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"bar_device", barDevice.c_str(), ini.c_str());
+    WritePrivateProfileStringW(L"general", L"show_number", showNumber ? L"1" : L"0", ini.c_str());
 
     std::wstring body;
     for (auto& [k, v] : hidden) if (v) { body += k + L"=1"; body.push_back(L'\0'); }

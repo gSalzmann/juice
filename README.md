@@ -19,7 +19,9 @@ tarefas que mostra a bateria de um dispositivo:
   selo, verde quando carregando
 - Selo no ícone com o número (ou um raio quando carregando); o título mostra "Nome — 97%"
 - Ícone do botão com ilustração do tipo de dispositivo
-- Dispositivo exibido: automático (menor bateria) ou escolhido nas configurações
+- Dispositivo exibido: automático (menor bateria), todos (alterna entre os conectados a cada minuto) ou um
+  escolhido nas configurações
+- Opção para ocultar o número do selo (fica só a barra de progresso; o raio continua aparecendo ao carregar)
 - Clique no botão abre uma janela compacta com todos os dispositivos, barra de nível e status
 - Configurações próprias em `%APPDATA%\WirelessTray\bar.ini`; "Iniciar com o Windows" abre minimizado
 - Modo de teste: `WirelessBar.exe --demo 22` (ou `--demo 80c` para carregando) simula o nível do dispositivo da
