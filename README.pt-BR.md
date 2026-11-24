@@ -8,7 +8,12 @@
 
 <p align="center">
   <b>A bateria dos seus periféricos sem fio, direto na barra de tarefas do Windows.</b><br>
-  Sem G HUB, sem serviço em segundo plano, sem instalador — um único <code>.exe</code> de ~270 KB.
+  Sem G HUB, sem serviço em segundo plano, sem instalador — um único <code>.exe</code> de ~280 KB.
+</p>
+
+<p align="center">
+  <a href="https://github.com/gSalzmann/juice/releases/latest/download/Juice.exe"><img alt="Baixar Juice.exe" src="https://img.shields.io/badge/Baixar-Juice.exe-F4600C?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <br><sub>Windows 10/11 x64 · <a href="https://github.com/gSalzmann/juice/releases/latest">notas da versão</a></sub>
 </p>
 
 <p align="center">

@@ -8,7 +8,12 @@
 
 <p align="center">
   <b>The battery level of your wireless mouse, keyboard and headset, right on the Windows taskbar.</b><br>
-  No G HUB, no background service, no installer — a single ~270 KB <code>.exe</code>.
+  No G HUB, no background service, no installer — a single ~280 KB <code>.exe</code>.
+</p>
+
+<p align="center">
+  <a href="https://github.com/gSalzmann/juice/releases/latest/download/Juice.exe"><img alt="Download Juice.exe" src="https://img.shields.io/badge/Download-Juice.exe-F4600C?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <br><sub>Windows 10/11 x64 · <a href="https://github.com/gSalzmann/juice/releases/latest">release notes</a></sub>
 </p>
 
 <p align="center">
