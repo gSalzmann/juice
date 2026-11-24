@@ -182,7 +182,7 @@ void ApplyDemo() {
 // Tray mode: closing the window hides it and shows a battery icon in the notification area
 // (the device on the taskbar, drawn like the classic tray icons). Right-click for the menu.
 
-constexpr UINT WM_APP_TRAY = WM_APP + 3, WM_APP_SHOW = WM_APP + 4, WM_APP_XBOX = WM_APP + 5;
+constexpr UINT WM_APP_TRAY = WM_APP + 3, WM_APP_SHOW = WM_APP + 4, WM_APP_PADS = WM_APP + 5;
 constexpr UINT TRAY_ID = 2;
 bool  g_inTray = false, g_trayShown = false;
 HICON g_trayIcon = nullptr;
@@ -891,8 +891,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RefreshAll();
         SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
         return 0;
-    case WM_APP_XBOX:   // a controller reported its battery, connected or left
-        g_dm.MergeXbox();
+    case WM_APP_PADS:   // a controller reported its battery, connected or left
+        g_dm.MergePads();
         for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
         RefreshAll();
         return 0;
@@ -912,7 +912,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_DEVICECHANGE:
-        if (wp == DBT_DEVNODES_CHANGED) { SetTimer(hwnd, TIMER_SOON, 3000, nullptr); XboxRescan(); }
+        if (wp == DBT_DEVNODES_CHANGED) { SetTimer(hwnd, TIMER_SOON, 3000, nullptr); PadsRescan(); }
         return TRUE;
     case WM_POWERBROADCAST:
         if (wp == PBT_APMRESUMEAUTOMATIC) SetTimer(hwnd, TIMER_SOON, 5000, nullptr);
@@ -1077,7 +1077,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     else ShowWindow(g_hwnd, SW_SHOW);
     UpdateTaskbar();
 
-    XboxStart(g_hwnd, WM_APP_XBOX);
+    PadsStart(g_hwnd, WM_APP_PADS);
     StartScan();
     RestartPollTimer();
     SetTimer(g_hwnd, TIMER_CLOCK, 60000, nullptr);

@@ -46,6 +46,8 @@ DWORD WINAPI ScanThread(LPVOID p) {
 
 }  // namespace
 
+bool IsPadKey(const std::wstring& key) { return key.rfind(L"xbox:", 0) == 0 || key.rfind(L"ps:", 0) == 0; }
+
 Device* DeviceManager::Find(const std::wstring& key) {
     for (auto& d : devices_) if (d.key == key) return &d;
     return nullptr;
@@ -268,23 +270,23 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
     }
     // Devices whose receiver/adapter disappeared entirely (or speakers not advertising: turned off).
     for (auto& d : devices_) {
-        if (d.key.rfind(L"xbox:", 0) == 0) continue;   // MergeXbox
+        if (IsPadKey(d.key)) continue;   // MergePads
         bool found = false;
         for (auto& k : seen) if (k == d.key) { found = true; break; }
         if (!found) d.present = false;
     }
 
-    MergeXbox();
+    MergePads();
     if (RecordLast()) knownChanged = true;
     if (knownChanged) cfg_.Save();
     if (rescan_) { rescan_ = false; StartScan(notify_, msg_); }
 }
 
-void DeviceManager::MergeXbox() {
-    const std::vector<XboxDeviceInfo> pads = XboxSnapshot();
+void DeviceManager::MergePads() {
+    const std::vector<PadInfo> pads = PadsSnapshot();
     bool changed = false;
     for (auto& d : devices_)
-        if (d.key.rfind(L"xbox:", 0) == 0) d.present = false;
+        if (IsPadKey(d.key)) d.present = false;
     for (auto& x : pads) {
         if (x.percent < 0 && !Find(x.key) && cfg_.known.find(x.key) == cfg_.known.end()) continue;
         Device& d = FindOrAdd(x.key);

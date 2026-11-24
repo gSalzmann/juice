@@ -10,7 +10,7 @@
 #include "config.h"
 #include "hidpp.h"
 #include "jbl.h"
-#include "xbox.h"
+#include "pads.h"
 #include "icon.h"   // Kind
 
 struct Device {
@@ -41,8 +41,8 @@ public:
     // ScanResult* in lParam that must be handed to OnScanDone().
     void StartScan(HWND notify, UINT msg);
     void OnScanDone(ScanResult* r);
-    // Applies the Xbox controller levels kept by the background reader (xbox.h).
-    void MergeXbox();
+    // Applies the game controller levels kept by the background reader (pads.h).
+    void MergePads();
     bool Scanning() const { return scanning_; }
 
     std::vector<Device>& Devices() { return devices_; }

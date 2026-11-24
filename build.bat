@@ -11,7 +11,7 @@ if not exist build\obj mkdir build\obj
 
 set CFLAGS=/nologo /utf-8 /std:c++17 /O1 /Os /GL /Gy /MT /W4 /EHsc /DUNICODE /D_UNICODE /DNOMINMAX /DNDEBUG /Fobuild\obj\ /Fdbuild\obj\
 set LFLAGS=/LTCG /OPT:REF /OPT:ICF /MANIFEST:NO
-set CORE=src\hidpp.cpp src\btbattery.cpp src\jbl.cpp src\xbox.cpp src\config.cpp src\devices.cpp src\icon.cpp
+set CORE=src\hidpp.cpp src\btbattery.cpp src\jbl.cpp src\pads.cpp src\config.cpp src\devices.cpp src\icon.cpp
 
 rem App (taskbar button + tray when closed)
 rc /nologo /c65001 /fo build\obj\juice.res src\juice.rc || exit /b 1
@@ -19,7 +19,7 @@ cl %CFLAGS% src\juice.cpp src\illust.cpp %CORE% build\obj\juice.res ^
    /Fe:build\Juice.exe /link %LFLAGS% /SUBSYSTEM:WINDOWS || exit /b 1
 
 rem Dev tools
-cl %CFLAGS% tools\probe.cpp src\hidpp.cpp src\btbattery.cpp src\jbl.cpp src\xbox.cpp /Fe:build\probe.exe /link %LFLAGS% /SUBSYSTEM:CONSOLE || exit /b 1
+cl %CFLAGS% tools\probe.cpp src\hidpp.cpp src\btbattery.cpp src\jbl.cpp src\pads.cpp /Fe:build\probe.exe /link %LFLAGS% /SUBSYSTEM:CONSOLE || exit /b 1
 cl %CFLAGS% tools\iconpreview.cpp src\icon.cpp /Fe:build\iconpreview.exe /link %LFLAGS% /SUBSYSTEM:CONSOLE || exit /b 1
 cl %CFLAGS% tools\illustpreview.cpp src\illust.cpp /Fe:build\illustpreview.exe /link %LFLAGS% /SUBSYSTEM:CONSOLE || exit /b 1
 

@@ -1,4 +1,6 @@
-// Xbox Wireless Controller over Bluetooth: battery from input report 0x04.
+// Game controllers over Bluetooth that send their battery level in an input report.
+//
+// Xbox Wireless Controller: battery from input report 0x04.
 //   Found as a HID gamepad (usage page 1 / usage 5) from Microsoft (VID 045E) whose descriptor has an
 //   input value Generic Device Controls (page 0x06) / Battery Strength (usage 0x20) in report 0x04.
 //   Value: bits 0-1 level (0..3 -> 10/40/70/100%, same mapping as SDL and GameInput),
@@ -6,8 +8,17 @@
 //   HidD_GetInputReport(0x04) is rejected, so the report is only seen when the controller sends it
 //   (about every 20 s, also while idle). Reading does not take the controller from games: HID
 //   gamepads are opened shared.
+//
+// PlayStation controllers (Sony, VID 054C), layouts as in Linux hid-playstation and SDL:
+//   DualShock 4 (PID 05C4, 09CC), Bluetooth report 0x11: byte 32 = status,
+//     bits 0-3 level 0..10 (11 = full on cable), bit 4 = cable connected.
+//   DualSense (PID 0CE6) and DualSense Edge (0DF2), Bluetooth report 0x31: byte 54 = status,
+//     bits 0-3 level 0..10, bits 4-7 0 = discharging, 1 = charging, 2 = full.
+//   Over Bluetooth both start with a reduced report (0x01, no battery); reading feature report 0x05
+//   (calibration) switches them to the full report, as games and drivers do.
+//   Untested: written from the published layouts, no hardware available.
 
-#include "xbox.h"
+#include "pads.h"
 
 #include <setupapi.h>
 #include <cfgmgr32.h>
@@ -15,6 +26,7 @@
 #include <hidsdi.h>
 #include <hidpi.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <mutex>
@@ -26,8 +38,21 @@
 
 namespace {
 
-constexpr USHORT MS_VID = 0x045E;
+constexpr USHORT MS_VID = 0x045E, SONY_VID = 0x054C;
+
+enum class Model { Xbox, DualShock4, DualSense };
+
+Model SonyModel(USHORT pid, bool& ok) {
+    ok = true;
+    switch (pid) {
+        case 0x05C4: case 0x09CC: return Model::DualShock4;
+        case 0x0CE6: case 0x0DF2: return Model::DualSense;
+    }
+    ok = false;
+    return Model::Xbox;
+}
 constexpr DWORD  RESCAN_MS = 60 * 1000;   // look for new controllers at least this often
+constexpr DWORD  SONY_PAUSE_MS = 30 * 1000;
 
 void (*g_log)(const wchar_t*) = nullptr;
 
@@ -43,6 +68,7 @@ void Log(const wchar_t* fmt, ...) {
 
 struct Pad {
     std::wstring path, key, name;
+    Model model = Model::Xbox;
     HANDLE h = INVALID_HANDLE_VALUE;
     OVERLAPPED ov{};
     PHIDP_PREPARSED_DATA pp = nullptr;
@@ -50,6 +76,7 @@ struct Pad {
     int percent = -1;
     bool charging = false;
     bool pending = false;
+    ULONGLONG nextRead = 0;   // Sony pads send hundreds of reports per second: read one, then pause
 
     ~Pad() {
         if (h != INVALID_HANDLE_VALUE) {
@@ -70,17 +97,39 @@ struct Pad {
     }
     // Returns true if the level changed.
     bool Decode(DWORD got) {
-        ULONG v = 0;
-        if (got == 0 || buf[0] != 0x04 ||
-            HidP_GetUsageValue(HidP_Input, 0x06, 0, 0x20, &v, pp, (PCHAR)buf.data(), got) != HIDP_STATUS_SUCCESS)
-            return false;
-        static const int pct[] = { 10, 40, 70, 100 };
-        const int p = pct[v & 3];
-        const bool c = ((v >> 2) & 3) == 0;
-        if (p == percent && c == charging) return false;
+        int p = -1;
+        bool c = false;
+        unsigned raw = 0;
+        if (model == Model::Xbox) {
+            ULONG v = 0;
+            if (got == 0 || buf[0] != 0x04 ||
+                HidP_GetUsageValue(HidP_Input, 0x06, 0, 0x20, &v, pp, (PCHAR)buf.data(), got) != HIDP_STATUS_SUCCESS)
+                return false;
+            static const int pct[] = { 10, 40, 70, 100 };
+            p = pct[v & 3];
+            c = ((v >> 2) & 3) == 0;
+            raw = v;
+        } else if (model == Model::DualShock4) {
+            if (got < 33 || buf[0] != 0x11) return false;
+            raw = buf[32];
+            const int level = raw & 0x0F;
+            if (raw & 0x10) {                               // on cable
+                if (level < 10) { p = level * 10 + 5; c = true; }
+                else if (level <= 11) p = 100;              // full
+            } else if (level <= 10) {
+                p = std::min(level * 10 + 5, 100);
+            }
+        } else {                                            // DualSense
+            if (got < 55 || buf[0] != 0x31) return false;
+            raw = buf[54];
+            const int level = raw & 0x0F, state = raw >> 4;
+            if (state == 0 || state == 1) { p = std::min(level * 10 + 5, 100); c = state == 1; }
+            else if (state == 2) p = 100;
+        }
+        if (p < 0 || (p == percent && c == charging)) return false;
         percent = p;
         charging = c;
-        Log(L"xbox %s raw=0x%02X -> %d%%%s", key.c_str(), v, p, c ? L" (charging)" : L"");
+        Log(L"pad %s raw=0x%02X -> %d%%%s", key.c_str(), raw, p, c ? L" (charging)" : L"");
         return true;
     }
 };
@@ -121,7 +170,7 @@ std::wstring BtFriendlyName(const std::wstring& addr) {
     return name;
 }
 
-// Opens every Xbox Bluetooth controller not already in `pads`.
+// Opens every supported Bluetooth controller not already in `pads`.
 void FindPads(std::vector<std::unique_ptr<Pad>>& pads) {
     GUID g;
     HidD_GetHidGuid(&g);
@@ -140,29 +189,55 @@ void FindPads(std::vector<std::unique_ptr<Pad>>& pads) {
         for (auto& p : pads) known |= _wcsicmp(p->path.c_str(), det->DevicePath) == 0;
         if (known) continue;
 
+        const std::wstring addr = BtAddress(dev.DevInst);
+        if (addr.empty()) continue;   // only Bluetooth: a USB-wired controller is charging anyway
+
         auto pad = std::make_unique<Pad>();
-        pad->h = CreateFileW(det->DevicePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
-                             FILE_FLAG_OVERLAPPED, nullptr);
+        // Read/write access is only needed for the Sony feature request; reports are read either way.
+        pad->h = CreateFileW(det->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                             OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+        if (pad->h == INVALID_HANDLE_VALUE)
+            pad->h = CreateFileW(det->DevicePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                                 FILE_FLAG_OVERLAPPED, nullptr);
         if (pad->h == INVALID_HANDLE_VALUE) continue;
         HIDD_ATTRIBUTES attr{ sizeof(attr) };
         HIDP_CAPS caps{};
-        HIDP_VALUE_CAPS vc{};
-        USHORT n = 1;
-        if (!HidD_GetAttributes(pad->h, &attr) || attr.VendorID != MS_VID || !HidD_GetPreparsedData(pad->h, &pad->pp) ||
-            HidP_GetCaps(pad->pp, &caps) != HIDP_STATUS_SUCCESS || caps.UsagePage != 0x01 || caps.Usage != 0x05 ||
-            HidP_GetSpecificValueCaps(HidP_Input, 0x06, 0, 0x20, &vc, &n, pad->pp) != HIDP_STATUS_SUCCESS || n < 1 ||
-            vc.ReportID != 0x04)
+        if (!HidD_GetAttributes(pad->h, &attr) || !HidD_GetPreparsedData(pad->h, &pad->pp) ||
+            HidP_GetCaps(pad->pp, &caps) != HIDP_STATUS_SUCCESS || caps.UsagePage != 0x01 || caps.Usage != 0x05)
             continue;
-        const std::wstring addr = BtAddress(dev.DevInst);
-        if (addr.empty()) continue;   // USB-wired controllers are not batteries we can read here
+        const wchar_t* prefix = nullptr;
+        const wchar_t* fallbackName = nullptr;
+        if (attr.VendorID == MS_VID) {
+            HIDP_VALUE_CAPS vc{};
+            USHORT n = 1;
+            if (HidP_GetSpecificValueCaps(HidP_Input, 0x06, 0, 0x20, &vc, &n, pad->pp) != HIDP_STATUS_SUCCESS || n < 1 ||
+                vc.ReportID != 0x04)
+                continue;
+            pad->model = Model::Xbox;
+            prefix = L"xbox:";
+            fallbackName = L"Xbox Wireless Controller";
+        } else if (attr.VendorID == SONY_VID) {
+            bool ok;
+            pad->model = SonyModel(attr.ProductID, ok);
+            if (!ok) continue;
+            prefix = L"ps:";
+            fallbackName = pad->model == Model::DualSense ? L"DualSense" : L"DualShock 4";
+            // Switch to the full report (with battery) by reading the calibration feature report.
+            std::vector<BYTE> feature(std::max<USHORT>(caps.FeatureReportByteLength, 64), 0);
+            feature[0] = 0x05;
+            HidD_GetFeature(pad->h, feature.data(), caps.FeatureReportByteLength ? caps.FeatureReportByteLength : 64);
+        } else {
+            continue;
+        }
         pad->path = det->DevicePath;
-        pad->key = L"xbox:" + addr;
+        pad->key = prefix + addr;
         pad->name = BtFriendlyName(addr);
-        if (pad->name.empty()) pad->name = L"Xbox Wireless Controller";
+        // Sony controllers are all called "Wireless Controller" by default: name the model instead.
+        if (pad->name.empty() || (attr.VendorID == SONY_VID && pad->name == L"Wireless Controller")) pad->name = fallbackName;
         pad->buf.resize(caps.InputReportByteLength);
         pad->ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
         if (!pad->Arm()) continue;
-        Log(L"xbox %s \"%s\" PID=%04X", pad->key.c_str(), pad->name.c_str(), attr.ProductID);
+        Log(L"pad %s \"%s\" VID=%04X PID=%04X", pad->key.c_str(), pad->name.c_str(), attr.VendorID, attr.ProductID);
         pads.push_back(std::move(pad));
     }
     SetupDiDestroyDeviceInfoList(set);
@@ -170,27 +245,44 @@ void FindPads(std::vector<std::unique_ptr<Pad>>& pads) {
 
 // Waits for reports. Returns true if anything visible changed. Removes controllers whose read fails.
 bool Pump(std::vector<std::unique_ptr<Pad>>& pads, HANDLE extra, DWORD timeoutMs, bool* extraSignaled) {
+    bool changed = false;
+    // Resume paused pads whose pause is over; wake up in time for the next one.
+    const ULONGLONG now = GetTickCount64();
+    for (size_t i = 0; i < pads.size();) {
+        Pad& p = *pads[i];
+        if (!p.pending) {
+            if (now < p.nextRead) {
+                timeoutMs = (DWORD)std::min<ULONGLONG>(timeoutMs, p.nextRead - now);
+            } else if (!p.Arm()) {
+                Log(L"pad %s gone", p.key.c_str());
+                pads.erase(pads.begin() + i);
+                changed = true;
+                continue;
+            }
+        }
+        ++i;
+    }
     HANDLE ev[MAXIMUM_WAIT_OBJECTS];
     DWORD n = 0;
     if (extra) ev[n++] = extra;
-    for (auto& p : pads) if (n < MAXIMUM_WAIT_OBJECTS) ev[n++] = p->ov.hEvent;
+    for (auto& p : pads) if (p->pending && n < MAXIMUM_WAIT_OBJECTS) ev[n++] = p->ov.hEvent;
     if (extraSignaled) *extraSignaled = false;
-    if (!n) { Sleep(timeoutMs); return false; }
+    if (!n) { Sleep(timeoutMs); return changed; }
     const DWORD w = WaitForMultipleObjects(n, ev, FALSE, timeoutMs);
-    if (w == WAIT_TIMEOUT || w >= WAIT_OBJECT_0 + n) return false;
-    if (extra && w == WAIT_OBJECT_0) { if (extraSignaled) *extraSignaled = true; return false; }
+    if (w == WAIT_TIMEOUT || w >= WAIT_OBJECT_0 + n) return changed;
+    if (extra && w == WAIT_OBJECT_0) { if (extraSignaled) *extraSignaled = true; return changed; }
 
-    bool changed = false;
     for (size_t i = 0; i < pads.size();) {
         Pad& p = *pads[i];
-        if (WaitForSingleObject(p.ov.hEvent, 0) != WAIT_OBJECT_0) { ++i; continue; }
+        if (!p.pending || WaitForSingleObject(p.ov.hEvent, 0) != WAIT_OBJECT_0) { ++i; continue; }
         DWORD got = 0;
         p.pending = false;
         if (GetOverlappedResult(p.h, &p.ov, &got, FALSE)) {
             changed |= p.Decode(got);
+            if (p.model != Model::Xbox && p.percent >= 0) { p.nextRead = GetTickCount64() + SONY_PAUSE_MS; ++i; continue; }
             if (p.Arm()) { ++i; continue; }
         }
-        Log(L"xbox %s gone", p.key.c_str());
+        Log(L"pad %s gone", p.key.c_str());
         changed = true;
         pads.erase(pads.begin() + i);   // turned off or out of range
     }
@@ -198,13 +290,13 @@ bool Pump(std::vector<std::unique_ptr<Pad>>& pads, HANDLE extra, DWORD timeoutMs
 }
 
 std::mutex g_mutex;
-std::vector<XboxDeviceInfo> g_state;
+std::vector<PadInfo> g_state;
 HANDLE g_rescan = nullptr;
 HWND g_notify = nullptr;
 UINT g_msg = 0;
 
 void Publish(const std::vector<std::unique_ptr<Pad>>& pads) {
-    std::vector<XboxDeviceInfo> s;
+    std::vector<PadInfo> s;
     for (auto& p : pads) s.push_back({ p->key, p->name, p->percent, p->charging });
     std::lock_guard<std::mutex> g(g_mutex);
     g_state = std::move(s);
@@ -233,7 +325,7 @@ DWORD WINAPI WatchThread(LPVOID) {
 
 }  // namespace
 
-void XboxStart(HWND notify, UINT msg) {
+void PadsStart(HWND notify, UINT msg) {
     if (g_rescan) return;
     g_notify = notify;
     g_msg = msg;
@@ -242,20 +334,20 @@ void XboxStart(HWND notify, UINT msg) {
     if (t) CloseHandle(t);
 }
 
-void XboxRescan() {
+void PadsRescan() {
     if (g_rescan) SetEvent(g_rescan);
 }
 
-std::vector<XboxDeviceInfo> XboxSnapshot() {
+std::vector<PadInfo> PadsSnapshot() {
     std::lock_guard<std::mutex> g(g_mutex);
     return g_state;
 }
 
-std::vector<XboxDeviceInfo> XboxProbe(DWORD timeoutMs, void (*log)(const wchar_t*)) {
+std::vector<PadInfo> PadsProbe(DWORD timeoutMs, void (*log)(const wchar_t*)) {
     g_log = log;
     std::vector<std::unique_ptr<Pad>> pads;
     FindPads(pads);
-    if (pads.empty()) Log(L"xbox: no Bluetooth controller");
+    if (pads.empty()) Log(L"pads: no Bluetooth controller");
     const ULONGLONG end = GetTickCount64() + timeoutMs;
     for (;;) {
         bool all = true;
@@ -264,7 +356,7 @@ std::vector<XboxDeviceInfo> XboxProbe(DWORD timeoutMs, void (*log)(const wchar_t
         if (all || now >= end) break;
         Pump(pads, nullptr, (DWORD)(end - now), nullptr);
     }
-    std::vector<XboxDeviceInfo> out;
+    std::vector<PadInfo> out;
     for (auto& p : pads) out.push_back({ p->key, p->name, p->percent, p->charging });
     g_log = nullptr;
     return out;

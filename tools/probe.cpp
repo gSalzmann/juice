@@ -2,7 +2,7 @@
 #include "../src/btbattery.h"
 #include "../src/hidpp.h"
 #include "../src/jbl.h"
-#include "../src/xbox.h"
+#include "../src/pads.h"
 #include <cstdio>
 #include <fcntl.h>
 #include <io.h>
@@ -14,7 +14,7 @@ int wmain() {
     auto devs = HidppScan(LogLine);
     auto bts = BtBatteryScan(LogLine);
     auto jbls = JblScan(LogLine);
-    auto pads = XboxProbe(25000, LogLine);   // the controller reports its battery about every 20 s
+    auto pads = PadsProbe(25000, LogLine);   // the controller reports its battery about every 20 s
     wprintf(L"\n=== %zu HID++ device(s), %zu Bluetooth device(s), %zu JBL speaker(s) ===\n", devs.size(), bts.size(), jbls.size());
     for (auto& d : devs) {
         wprintf(L"%-30s %-38s online=%d asleep=%d type=%d feature=0x%04X battery=%d%% charging=%d unit=%s\n",
