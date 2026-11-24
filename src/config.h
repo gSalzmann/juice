@@ -12,6 +12,7 @@ struct Config {
     bool colorLevels  = false;  // tray: blue / orange / red number by battery level
     std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery, "*" = rotate)
     bool showNumber   = true;   // taskbar app: % badge on the button icon
+    bool jbl          = false;  // read JBL speakers over Bluetooth LE (needs a short BLE scan per refresh)
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
     std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")

@@ -91,6 +91,12 @@ std::vector<uint8_t> RenderShape(Kind kind, int size) {
                 c.Fill(false, S::Rect, 2.0f + 2 * k, 5.0f + 2 * row, 3.0f + 2 * k, 6.0f + 2 * row);
         c.Fill(false, S::Rect,  4, 9, 11, 10);               // space bar
         break;
+    case Kind::Speaker:
+        c.Fill(true,  S::Round, 0.5f, 4.5f, 15.5f, 11.5f, 3.5f); // cylinder seen from the front
+        c.Fill(false, S::Rect,  3.2f, 4.5f, 4, 11.5f);       // end caps
+        c.Fill(false, S::Rect,  12, 4.5f, 12.8f, 11.5f);
+        c.Fill(false, S::Round, 6.5f, 7, 9.5f, 9, 0.5f);     // logo
+        break;
     default:                                                 // battery (app / unknown device)
         c.Fill(true,  S::Round, 0.5f, 4, 14, 12, 2);
         c.Fill(false, S::Round, 2, 5.5f, 12.5f, 10.5f, 1);

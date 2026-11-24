@@ -17,7 +17,8 @@ Kind KindFromHidpp(int t) {
 }
 
 Kind KindFromBt(int major, int minor) {
-    if (major == 4) return Kind::Headset;            // audio/video
+    if (major == 4)                                   // audio/video: loudspeaker, portable audio, hi-fi
+        return minor == 5 || minor == 7 || minor == 10 ? Kind::Speaker : Kind::Headset;
     if (major == 5) {                                 // peripheral
         int sub = (minor >> 4) & 3;
         if (sub == 2) return Kind::Mouse;
@@ -27,15 +28,17 @@ Kind KindFromBt(int major, int minor) {
 }
 
 // Kind names stored in the ini ([kinds] section); Other is never stored.
-const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset" };
+const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset", L"speaker" };   // Kind order
+constexpr int KIND_COUNT = sizeof(KIND_NAMES) / sizeof(KIND_NAMES[0]);
 
-struct ThreadArgs { HWND hwnd; UINT msg; };
+struct ThreadArgs { HWND hwnd; UINT msg; bool jbl; };
 
 DWORD WINAPI ScanThread(LPVOID p) {
     std::unique_ptr<ThreadArgs> a((ThreadArgs*)p);
     auto* r = new ScanResult;
     r->hid = HidppScan();
     r->bt  = BtBatteryScan();
+    if (a->jbl) r->jbl = JblScan();
     if (!PostMessageW(a->hwnd, a->msg, 0, (LPARAM)r)) delete r;
     return 0;
 }
@@ -97,7 +100,7 @@ void DeviceManager::Forget(const std::wstring& key) {
 Kind DeviceManager::KnownKind(const std::wstring& key) const {
     auto it = cfg_.kinds.find(key);
     if (it != cfg_.kinds.end())
-        for (int i = 0; i < 3; i++) if (it->second == KIND_NAMES[i]) return (Kind)i;
+        for (int i = 0; i < KIND_COUNT; i++) if (it->second == KIND_NAMES[i]) return (Kind)i;
     return Kind::Other;
 }
 
@@ -106,8 +109,8 @@ void DeviceManager::StartScan(HWND notify, UINT msg) {
     msg_ = msg;
     if (scanning_) { rescan_ = true; return; }
     scanning_ = true;
-    auto* args = new ThreadArgs{ notify, msg };
-    HANDLE t = CreateThread(nullptr, 64 * 1024, ScanThread, args, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
+    auto* args = new ThreadArgs{ notify, msg, cfg_.jbl };
+    HANDLE t = CreateThread(nullptr, 256 * 1024, ScanThread, args, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
     if (t) CloseHandle(t);
     else { delete args; scanning_ = false; }
 }
@@ -215,7 +218,17 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         if (d.present) { d.percent = b.percent; d.charging = false; d.lastGood = now; }
         remember(d);
     }
-    // Devices whose receiver/adapter disappeared entirely.
+    for (auto& j : r->jbl) {
+        Device& d = FindOrAdd(j.key);
+        seen.push_back(j.key);
+        if (!j.name.empty()) d.name = j.name;
+        d.kind = Kind::Speaker;
+        d.asleep = false;
+        d.present = j.percent >= 0;
+        if (d.present) { d.percent = j.percent; d.charging = j.charging; d.lastGood = now; }
+        remember(d);
+    }
+    // Devices whose receiver/adapter disappeared entirely (or speakers not advertising: turned off).
     for (auto& d : devices_) {
         bool found = false;
         for (auto& k : seen) if (k == d.key) { found = true; break; }

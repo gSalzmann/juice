@@ -5,7 +5,7 @@
 
 1 24 "app.manifest"
 
-IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 270
+IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 288
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -29,7 +29,8 @@ BEGIN
     AUTOCHECKBOX    "Exibir o percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 10, 178, 240, 10
     AUTOCHECKBOX    "Colorir o número do ícone da bandeja conforme o nível", IDC_COLORLEVELS, 10, 196, 240, 10
     AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 10, 214, 200, 10
+    AUTOCHECKBOX    "Ler bateria de caixas de som JBL (Bluetooth LE)", IDC_JBL, 10, 232, 240, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 146, 246, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 246, 50, 14
+    DEFPUSHBUTTON   "OK", IDOK, 146, 264, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 200, 264, 50, 14
 END

@@ -606,6 +606,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             SetDlgItemTextW(dlg, IDC_SHOWNUMBER, L"Show the percentage on the taskbar icon");
             SetDlgItemTextW(dlg, IDC_COLORLEVELS, L"Color the tray icon number by battery level");
             SetDlgItemTextW(dlg, IDC_AUTOSTART, L"Start with Windows (in the tray)");
+            SetDlgItemTextW(dlg, IDC_JBL, L"Read the battery of JBL speakers (Bluetooth LE)");
             SetDlgItemTextW(dlg, IDCANCEL, L"Cancel");
         }
         FillDeviceControls(dlg, *st);
@@ -617,6 +618,7 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         CheckDlgButton(dlg, IDC_SHOWNUMBER, g_cfg.showNumber ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_COLORLEVELS, g_cfg.colorLevels ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_AUTOSTART, AutostartEnabled(AUTOSTART_NAME) ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dlg, IDC_JBL, g_cfg.jbl ? BST_CHECKED : BST_UNCHECKED);
         EnableWindow(GetDlgItem(dlg, IDC_THRESHOLD), g_cfg.lowWarning);
         return TRUE;
     case WM_COMMAND:
@@ -640,12 +642,15 @@ INT_PTR CALLBACK SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             g_cfg.lowWarning = IsDlgButtonChecked(dlg, IDC_LOWWARN) == BST_CHECKED;
             g_cfg.showNumber = IsDlgButtonChecked(dlg, IDC_SHOWNUMBER) == BST_CHECKED;
             g_cfg.colorLevels = IsDlgButtonChecked(dlg, IDC_COLORLEVELS) == BST_CHECKED;
+            const bool jblWasOn = g_cfg.jbl;
+            g_cfg.jbl = IsDlgButtonChecked(dlg, IDC_JBL) == BST_CHECKED;
             bool autostart = IsDlgButtonChecked(dlg, IDC_AUTOSTART) == BST_CHECKED;
             // Rewritten when on, so older entries (--minimized) pick up the current arguments.
             if (autostart || AutostartEnabled(AUTOSTART_NAME)) SetAutostart(AUTOSTART_NAME, autostart, L"--tray");
             g_cfg.Save();
             RestartPollTimer();
             RefreshAll();
+            if (g_cfg.jbl && !jblWasOn) StartScan();   // show the speakers right away
             EndDialog(dlg, IDOK);
             return TRUE;
         }

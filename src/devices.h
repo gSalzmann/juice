@@ -9,6 +9,7 @@
 #include "btbattery.h"
 #include "config.h"
 #include "hidpp.h"
+#include "jbl.h"
 #include "icon.h"   // Kind
 
 struct Device {
@@ -27,6 +28,7 @@ struct Device {
 struct ScanResult {
     std::vector<HidppDeviceInfo> hid;
     std::vector<BtDeviceInfo>    bt;
+    std::vector<JblDeviceInfo>   jbl;
 };
 
 class DeviceManager {

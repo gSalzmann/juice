@@ -157,6 +157,24 @@ void DrawKeyboard(Painter& p) {
     key(25.6f, 20.8f, 1.45f, false);
 }
 
+void DrawSpeaker(Painter& p) {
+    // Portable cylinder speaker lying down: fabric body, rubber end caps, small badge in the middle.
+    p.Fill([](float x, float y) { return Box(x, y, 16, 27.6f, 12.5f, 1.0f, 1.0f); }, kShadow, 2.0f);
+    p.Fill([](float x, float y) { return Box(x, y, 16, 17, 15.2f, 8.6f, 8.6f); }, kRimTop, kRimBot, 0, 8, 0, 26);
+    auto body = [](float x, float y) { return Box(x, y, 16, 17, 14.2f, 7.6f, 7.6f); };
+    p.Fill(body, kDarkTop, kDarkBot, 0, 9, 0, 25);
+    for (int i = 0; i < 5; ++i) {                          // fabric weave
+        const float ly = 12.6f + 2.2f * i;
+        p.Fill([=](float x, float y) { return std::max(body(x, y), std::fabs(y - ly) - 0.35f); }, Hex(0xFFFFFF, 0.10f));
+    }
+    for (int side = -1; side <= 1; side += 2) {           // end caps (passive radiators)
+        const float cx = 16 + side * 12.4f;
+        p.Fill([=](float x, float y) { return Box(x, y, cx, 17, 2.0f, 6.6f, 2.0f); }, kBodyTop, kBodyBot, 0, 10, 0, 24);
+    }
+    p.Fill([](float x, float y) { return Box(x, y, 16, 17, 3.4f, 1.7f, 1.2f); }, kAccentTop, kAccentBot, 0, 15, 0, 19);
+    p.Fill([](float x, float y) { return Segment(x, y, 8.5f, 10.6f, 23.5f, 10.6f, 0.6f); }, Hex(0xFFFFFF, 0.35f));
+}
+
 void DrawBattery(Painter& p) {
     p.Fill([](float x, float y) { return Box(x, y, 15, 26.4f, 11.0f, 1.0f, 1.0f); }, kShadow, 2.0f);
     p.Fill([](float x, float y) { return Box(x, y, 14.6f, 16, 12.8f, 8.4f, 3.4f); }, kRimTop, kRimBot, 0, 7, 0, 25);
@@ -190,6 +208,7 @@ void DrawIllustration(Painter& p, Kind kind) {
         case Kind::Mouse:    DrawMouse(p); break;
         case Kind::Headset:  DrawHeadset(p); break;
         case Kind::Keyboard: DrawKeyboard(p); break;
+        case Kind::Speaker:  DrawSpeaker(p); break;
         default:             DrawBattery(p); break;
     }
 }

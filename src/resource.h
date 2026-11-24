@@ -14,3 +14,4 @@
 #define IDC_LBL_DEVICES     1012
 #define IDC_LBL_EVERY       1013
 #define IDC_LBL_MINUTES     1014
+#define IDC_JBL             1015

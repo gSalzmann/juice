@@ -9,13 +9,13 @@
 
 int wmain(int argc, wchar_t** argv) {
     const int scale = 4, pad = 8;
-    const Kind kinds[] = { Kind::Mouse, Kind::Headset, Kind::Keyboard, Kind::App };
+    const Kind kinds[] = { Kind::Mouse, Kind::Headset, Kind::Keyboard, Kind::Speaker, Kind::App };
     const int sizes[] = { 24, 32, 64 };
     struct B { int p; bool c; } badges[] = { {97, false}, {22, false}, {9, false}, {100, false}, {55, true} };
 
-    // Layout: per background, one row per size with the 4 illustrations, then a row of badges.
+    // Layout: per background, one row per size with every illustration, then a row of badges.
     int rowW = 0;
-    for (int s : sizes) rowW = std::max(rowW, 4 * (s + pad));
+    for (int s : sizes) rowW = std::max(rowW, (int)(sizeof(kinds) / sizeof(kinds[0])) * (s + pad));
     const int H1 = (24 + pad) + (32 + pad) + (64 + pad) + (16 + pad);
     const int W = rowW * 2, H = H1;
     std::vector<uint32_t> img((size_t)W * H);
@@ -40,7 +40,7 @@ int wmain(int argc, wchar_t** argv) {
 
         int y = pad / 2;
         for (int s : sizes) {
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < (int)(sizeof(kinds) / sizeof(kinds[0])); ++i) {
                 std::vector<uint32_t> px((size_t)s * s, 0);
                 Painter p(px.data(), s, s, s, 0, 0, s / 32.0f);
                 DrawIllustration(p, kinds[i]);
