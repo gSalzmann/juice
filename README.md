@@ -15,12 +15,15 @@ de mouses, teclados e fones sem fio — sem depender de software do fabricante (
 Alternativa à bandeja: `WirelessBar.exe` fica aberto como um programa normal, com um botão na barra de
 tarefas que mostra a bateria de um dispositivo:
 
-- Barra de progresso do botão = % de bateria (verde ≥ 30%, amarelo 15–29%, vermelho < 15%)
+- Barra de progresso do botão = % de bateria (azul ≥ 30%, amarelo 15–29%, vermelho < 15%); na janela e no
+  selo, verde quando carregando
 - Selo no ícone com o número (ou um raio quando carregando); o título mostra "Nome — 97%"
 - Ícone do botão com ilustração do tipo de dispositivo
 - Dispositivo exibido: automático (menor bateria) ou escolhido nas configurações
 - Clique no botão abre uma janela compacta com todos os dispositivos, barra de nível e status
 - Configurações próprias em `%APPDATA%\WirelessTray\bar.ini`; "Iniciar com o Windows" abre minimizado
+- Modo de teste: `WirelessBar.exe --demo 22` (ou `--demo 80c` para carregando) simula o nível do dispositivo da
+  barra; com a janela em foco, ↑/↓ mudam 5% e C liga/desliga o carregamento. Abre um botão separado do app normal
 
 ## Dispositivos suportados
 

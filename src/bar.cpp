@@ -126,6 +126,33 @@ const Device* SelectedDevice() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Demo mode (--demo N[c]): overrides the level of the device on the taskbar to test the colors.
+// Up/Down change the level by 5, C toggles charging.
+
+int  g_demoPercent = -1;   // -1 = off
+bool g_demoCharging = false;
+
+void ApplyDemo() {
+    if (g_demoPercent < 0) return;
+    Device* d = const_cast<Device*>(SelectedDevice());
+    if (!d) {   // nothing connected: use a synthetic device
+        d = g_dm.Find(L"demo");
+        if (!d) {
+            g_dm.Devices().push_back(Device{});
+            d = &g_dm.Devices().back();
+            d->key = L"demo";
+            d->name = L"Demonstração";
+            d->kind = Kind::Headset;
+        }
+    }
+    d->present = true;
+    d->asleep = false;
+    d->lastGood = GetTickCount64();
+    d->percent = g_demoPercent;
+    d->charging = g_demoCharging;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Taskbar button
 
 void SetWindowIcons(Kind kind) {
@@ -146,7 +173,8 @@ void UpdateTaskbar() {
     const Device* d = SelectedDevice();
     std::wstring title;
     if (d) {
-        title = d->Label() + L" — " + std::to_wstring(d->percent) + L"%" + (d->charging ? L" · carregando" : L"");
+        title = d->Label() + L" — " + std::to_wstring(d->percent) + L"%" + (d->charging ? L" · carregando" : L"") +
+                (g_demoPercent >= 0 ? L" (demo)" : L"");
         SetWindowIcons(d->kind);
     } else {
         title = g_dm.Scanning() ? L"Wireless Bar — procurando dispositivos..." : L"Wireless Bar — nenhum dispositivo";
@@ -507,6 +535,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_APP_SCANDONE:
         g_dm.OnScanDone((ScanResult*)lp);
+        ApplyDemo();
         for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
         RefreshAll();
         SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
@@ -558,6 +587,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_KEYDOWN:
         if (wp == VK_ESCAPE) ShowWindow(hwnd, SW_MINIMIZE);
         else if (wp == VK_F5) StartScan();
+        else if (g_demoPercent >= 0 && (wp == VK_UP || wp == VK_DOWN || wp == 'C')) {
+            if (wp == 'C') g_demoCharging = !g_demoCharging;
+            else g_demoPercent = std::min(100, std::max(0, g_demoPercent + (wp == VK_UP ? 5 : -5)));
+            ApplyDemo();
+            for (Device* d : g_dm.TakeLowBatteryAlerts()) NotifyLow(*d);
+            RefreshAll();
+        }
         return 0;
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((const wchar_t*)lp, L"ImmersiveColorSet") == 0) {
@@ -583,8 +619,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"WirelessTray.WirelessBar.SingleInstance");
-    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (const wchar_t* demo = cmdLine ? wcsstr(cmdLine, L"--demo") : nullptr) {
+        wchar_t* end = nullptr;
+        long v = wcstol(demo + 6, &end, 10);
+        g_demoPercent = end == demo + 6 ? 50 : (int)std::min(100L, std::max(0L, v));
+        g_demoCharging = end && (*end == L'c' || *end == L'C');
+    }
+
+    // The demo runs alongside the real instance, with its own taskbar button.
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, g_demoPercent >= 0 ? L"WirelessTray.WirelessBar.Demo"
+                                                                  : L"WirelessTray.WirelessBar.SingleInstance");
+    if (GetLastError() == ERROR_ALREADY_EXISTS && g_demoPercent < 0) {
         if (HWND other = FindWindowW(CLASS_NAME, nullptr)) {
             ShowWindow(other, SW_RESTORE);
             SetForegroundWindow(other);
@@ -593,7 +638,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     }
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    SetCurrentProcessExplicitAppUserModelID(APP_ID);
+    SetCurrentProcessExplicitAppUserModelID(g_demoPercent >= 0 ? L"WirelessTray.WirelessBar.Demo" : APP_ID);
     INITCOMMONCONTROLSEX icc{ sizeof(icc), ICC_LISTVIEW_CLASSES | ICC_UPDOWN_CLASS | ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
@@ -631,6 +676,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR cmdLine, int) {
     SetWindowPos(g_hwnd, nullptr, mi.rcWork.right - (wr.right - wr.left) - margin,
                  mi.rcWork.bottom - (wr.bottom - wr.top) - margin, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
+    ApplyDemo();
     UpdateTaskbar();
     const bool minimized = cmdLine && wcsstr(cmdLine, L"--minimized");
     ShowWindow(g_hwnd, minimized ? SW_SHOWMINNOACTIVE : SW_SHOW);
