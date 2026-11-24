@@ -81,6 +81,19 @@ bool DeviceManager::Adopt(const std::wstring& from, const std::wstring& to) {
     return changed;
 }
 
+void DeviceManager::Forget(const std::wstring& key) {
+    cfg_.known.erase(key);
+    cfg_.kinds.erase(key);
+    cfg_.hidden.erase(key);
+    if (cfg_.barDevice == key) cfg_.barDevice.clear();
+    for (auto* m : { &cfg_.slots, &cfg_.aliases })
+        for (auto it = m->begin(); it != m->end();)
+            it = it->first == key || it->second == key ? m->erase(it) : std::next(it);
+    devices_.erase(std::remove_if(devices_.begin(), devices_.end(),
+                                  [&](const Device& d) { return d.key == key; }), devices_.end());
+    cfg_.Save();
+}
+
 Kind DeviceManager::KnownKind(const std::wstring& key) const {
     auto it = cfg_.kinds.find(key);
     if (it != cfg_.kinds.end())
@@ -191,6 +204,8 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
             d.lastGood = now;
             continue;
         }
+        // Paired but not connected, and not in the list (never seen or forgotten): wait until it connects.
+        if (!Find(b.key) && cfg_.known.find(b.key) == cfg_.known.end() && !(b.connected && b.percent >= 0)) continue;
         Device& d = FindOrAdd(b.key);
         seen.push_back(b.key);
         if (!b.name.empty()) d.name = b.name;

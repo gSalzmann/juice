@@ -43,6 +43,8 @@ public:
     Device* Find(const std::wstring& key);
     bool IsHidden(const std::wstring& key) const;
     Kind KnownKind(const std::wstring& key) const;   // kind remembered in the ini (Other if never seen)
+    // Drops a device from the list and the ini; it comes back only when it connects again.
+    void Forget(const std::wstring& key);
 
     // Returns devices that crossed the low-battery threshold since the last call (one per discharge).
     std::vector<Device*> TakeLowBatteryAlerts();

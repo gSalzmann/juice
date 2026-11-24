@@ -49,8 +49,9 @@ HWND   g_settingsDlg = nullptr;
 bool   g_notifyShown = false;
 HICON  g_notifyIcon = nullptr;
 
-enum Hover { HOVER_NONE, HOVER_REFRESH, HOVER_SETTINGS };
+enum Hover { HOVER_NONE, HOVER_REFRESH, HOVER_SETTINGS, HOVER_REMOVE };
 int  g_hover = HOVER_NONE;
+int  g_hoverRow = -1;   // row under the mouse (disconnected rows show a remove button)
 RECT g_btnRefresh{}, g_btnSettings{};
 
 // ---------------------------------------------------------------------------------------------
@@ -335,6 +336,16 @@ void RemoveNotifyIcon() {
 // ---------------------------------------------------------------------------------------------
 // Window
 
+bool RowOnline(const Row& r) { return r.dev && r.dev->present && r.dev->percent >= 0; }
+
+// Remove (×) button of a row, in place of the percentage.
+RECT RemoveRect(int row) {
+    RECT rc;
+    GetClientRect(g_hwnd, &rc);
+    const int y = S(TOP_PAD) + row * S(ROW_H), sz = S(24), right = rc.right - S(PAD) + S(4);
+    return RECT{ right - sz, y + S(9), right, y + S(9) + sz };
+}
+
 int ContentHeight() {
     size_t n = VisibleRows().size();
     return S(TOP_PAD) + (n ? (int)n * S(ROW_H) : S(EMPTY_H)) + S(FOOT_H);
@@ -412,9 +423,10 @@ void Paint(HDC target) {
                    RECT{ 0, y, W, y + S(EMPTY_H) }, DT_CENTER | DT_VCENTER, fSub, th.sub);
         y += S(EMPTY_H);
     }
-    for (const Row& r : rows) {
+    for (int i = 0; i < (int)rows.size(); ++i) {
+        const Row& r = rows[i];
         const Device* d = r.dev;
-        const bool online = d && d->present && d->percent >= 0;
+        const bool online = RowOnline(r);
         const uint32_t textColor = online ? th.text : th.sub;
 
         // Illustration (dimmed when offline by drawing a translucent background veil over it).
@@ -426,12 +438,25 @@ void Paint(HDC target) {
 
         // Name + percentage
         const int lineH = S(22);
-        std::wstring pct = online ? std::to_wstring(d->percent) + L"%" : L"—";
-        DrawTextAt(dc, pct, RECT{ tx, y + S(10), right, y + S(10) + lineH }, DT_RIGHT | DT_VCENTER, fPct, textColor);
         SIZE pctSize{};
-        HGDIOBJ o = SelectObject(dc, fPct);
-        GetTextExtentPoint32W(dc, pct.c_str(), (int)pct.size(), &pctSize);
-        SelectObject(dc, o);
+        if (!online && i == g_hoverRow) {
+            // Disconnected row under the mouse: × to forget the device.
+            const RECT xr = RemoveRect(i);
+            const int bw = xr.right - xr.left, bh = xr.bottom - xr.top;
+            const bool hot = g_hover == HOVER_REMOVE;
+            Painter hp = painterAt(xr.left, xr.top, bw, bh, 1.0f);
+            const float hw = bw / 2.0f, hh = bh / 2.0f, rad = (float)S(4);
+            hp.Fill([=](float xx, float yy) { return sdf::Box(xx, yy, hw, hh, hw, hh, rad); },
+                    Hex(hot ? 0xC42B1C : th.hover));
+            DrawTextAt(dc, L"\xE711", xr, DT_CENTER | DT_VCENTER, fGlyph, hot ? 0xFFFFFF : th.text);
+            pctSize.cx = right - xr.left;
+        } else {
+            std::wstring pct = online ? std::to_wstring(d->percent) + L"%" : L"—";
+            DrawTextAt(dc, pct, RECT{ tx, y + S(10), right, y + S(10) + lineH }, DT_RIGHT | DT_VCENTER, fPct, textColor);
+            HGDIOBJ o = SelectObject(dc, fPct);
+            GetTextExtentPoint32W(dc, pct.c_str(), (int)pct.size(), &pctSize);
+            SelectObject(dc, o);
+        }
         DrawTextAt(dc, r.name, RECT{ tx, y + S(10), right - pctSize.cx - S(8), y + S(10) + lineH },
                    DT_LEFT | DT_VCENTER, fName, textColor);
 
@@ -738,9 +763,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 1;
     case WM_MOUSEMOVE: {
         POINT pt{ (short)LOWORD(lp), (short)HIWORD(lp) };
-        int h = PtInRect(&g_btnRefresh, pt) ? HOVER_REFRESH : PtInRect(&g_btnSettings, pt) ? HOVER_SETTINGS : HOVER_NONE;
-        if (h != g_hover) {
+        const std::vector<Row> rows = VisibleRows();
+        int row = pt.y >= S(TOP_PAD) ? (pt.y - S(TOP_PAD)) / S(ROW_H) : -1;
+        if (row >= (int)rows.size() || (row >= 0 && RowOnline(rows[row]))) row = -1;
+        RECT xr = row >= 0 ? RemoveRect(row) : RECT{};
+        int h = PtInRect(&g_btnRefresh, pt) ? HOVER_REFRESH : PtInRect(&g_btnSettings, pt) ? HOVER_SETTINGS
+              : row >= 0 && PtInRect(&xr, pt) ? HOVER_REMOVE : HOVER_NONE;
+        if (h != g_hover || row != g_hoverRow) {
             g_hover = h;
+            g_hoverRow = row;
             InvalidateRect(hwnd, nullptr, FALSE);
             TRACKMOUSEEVENT tme{ sizeof(tme), TME_LEAVE, hwnd, 0 };
             TrackMouseEvent(&tme);
@@ -748,7 +779,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_MOUSELEAVE:
-        if (g_hover != HOVER_NONE) { g_hover = HOVER_NONE; InvalidateRect(hwnd, nullptr, FALSE); }
+        if (g_hover != HOVER_NONE || g_hoverRow >= 0) {
+            g_hover = HOVER_NONE;
+            g_hoverRow = -1;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
         return 0;
     case WM_SETCURSOR:
         if (LOWORD(lp) == HTCLIENT && g_hover != HOVER_NONE) { SetCursor(LoadCursorW(nullptr, IDC_HAND)); return TRUE; }
@@ -756,6 +791,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONUP:
         if (g_hover == HOVER_REFRESH) StartScan();
         else if (g_hover == HOVER_SETTINGS) OpenSettings();
+        else if (g_hover == HOVER_REMOVE) {
+            // Re-check against the current list: a scan may have reordered the rows since the last move.
+            const std::vector<Row> rows = VisibleRows();
+            POINT pt{ (short)LOWORD(lp), (short)HIWORD(lp) };
+            RECT xr = g_hoverRow >= 0 ? RemoveRect(g_hoverRow) : RECT{};
+            if (g_hoverRow >= 0 && g_hoverRow < (int)rows.size() && !RowOnline(rows[g_hoverRow]) && PtInRect(&xr, pt)) {
+                g_dm.Forget(rows[g_hoverRow].key);
+                g_hover = HOVER_NONE;
+                g_hoverRow = -1;
+                RefreshAll();
+            }
+        }
         return 0;
     case WM_KEYDOWN:
         if (wp == VK_ESCAPE) ShowWindow(hwnd, SW_MINIMIZE);
