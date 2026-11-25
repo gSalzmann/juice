@@ -157,7 +157,7 @@ Open **Settings** from the window or the tray menu. The screen follows the Windo
 | Devices | On the taskbar | Automatic | *Automatic* = lowest battery (prefers devices that are not charging) · *All* = rotate through the connected ones every minute · or a fixed device |
 | | Device list | all checked | Uncheck to hide a device from the window, the taskbar and the tray |
 | | Show the last level of disconnected devices | on | Keeps the last reading in grey, with how long ago it was read |
-| | Read JBL speakers (Bluetooth LE) | off | Listens for ~2.5 s on each refresh and connects to the speakers to read the level (~2 MB more memory) |
+| | Read JBL speakers (Bluetooth LE) | off | Listens for ~5 s on each refresh and connects to the speakers to read the level (~2 MB more memory) |
 | | Read AirPods and Beats earbuds (Bluetooth LE) | off | Reads them from their advertisements during the same listening window (~2 MB more memory) |
 | Icons | Percentage on the taskbar icon | on | Turns the number badge on/off |
 | | Color the tray number by level | off | Blue / orange / red instead of the neutral color |

@@ -159,7 +159,7 @@ Clique em **Configurações** na janela ou no menu da bandeja. A tela segue o te
 | Dispositivos | Na barra de tarefas | Automático | *Automático* = o de menor bateria (prioriza os que não estão carregando) · *Todos* = alterna entre os conectados a cada minuto · ou um dispositivo fixo |
 | | Lista de dispositivos | todos marcados | Desmarque para esconder um dispositivo da janela, da barra e da bandeja |
 | | Mostrar o último nível dos desconectados | ligado | Mantém a última leitura em cinza, com há quanto tempo foi lida |
-| | Ler caixas de som JBL (Bluetooth LE) | desligado | Escuta por ~2,5 s a cada atualização e conecta nas caixas para ler o nível (~2 MB a mais de memória) |
+| | Ler caixas de som JBL (Bluetooth LE) | desligado | Escuta por ~5 s a cada atualização e conecta nas caixas para ler o nível (~2 MB a mais de memória) |
 | | Ler AirPods e fones Beats (Bluetooth LE) | desligado | Lê pelos anúncios, na mesma janela de escuta (~2 MB a mais de memória) |
 | Ícones | Percentual no ícone da barra de tarefas | ligado | Liga/desliga o selo com o número |
 | | Colorir o número da bandeja pelo nível | desligado | Azul / laranja / vermelho em vez da cor neutra |

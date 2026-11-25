@@ -47,7 +47,7 @@ namespace {
 constexpr uint16_t HARMAN_COMPANY_ID = 0x0057;
 constexpr uint16_t APPLE_COMPANY_ID  = 0x004C;
 constexpr int16_t  APPLE_MIN_RSSI    = -65;    // dBm: roughly "on the desk", not the next room
-constexpr DWORD    ADVERT_WINDOW_MS  = 2500;
+constexpr DWORD    ADVERT_WINDOW_MS  = 5000;   // 2.5 s missed the speaker about 1 scan in 4
 constexpr DWORD    STEP_TIMEOUT_MS   = 4000;
 constexpr DWORD    INFO_TIMEOUT_MS   = 3000;
 
