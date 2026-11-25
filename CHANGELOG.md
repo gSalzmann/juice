@@ -4,7 +4,7 @@
 
 All notable changes to Juice. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [1.2.0] — 2026-11-24
+## [1.2.0] — 2026-11-25
 
 ### Added
 - **PlayStation controllers** over Bluetooth: DualSense, DualSense Edge and DualShock 4 *(not tested yet)*.
@@ -20,6 +20,7 @@ All notable changes to Juice. Versions follow [Semantic Versioning](https://semv
 ### Changed
 - **Settings** reorganized in sections (Devices, Icons, Refresh and warnings, General), following the Windows
   light/dark theme; the device list only has the names.
+- JBL speakers are listened for ~5 s on each refresh (was ~2.5 s, which sometimes missed the speaker).
 
 ## [1.1.0] — 2026-11-24
 
@@ -62,7 +63,7 @@ device, English and Portuguese.
 
 Todas as mudanças relevantes do Juice. As versões seguem o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
-## [1.2.0] — 24/11/2026
+## [1.2.0] — 25/11/2026
 
 ### Novidades
 - **Controles PlayStation** pelo Bluetooth: DualSense, DualSense Edge e DualShock 4 *(ainda não testado)*.
@@ -78,6 +79,7 @@ Todas as mudanças relevantes do Juice. As versões seguem o [Versionamento Sem�
 ### Mudanças
 - **Configurações** reorganizadas em seções (Dispositivos, Ícones, Atualização e avisos, Geral), seguindo o tema
   claro/escuro do Windows; a lista de dispositivos tem só os nomes.
+- As caixas JBL são procuradas por ~5 s a cada atualização (antes ~2,5 s, que às vezes não achavam a caixa).
 
 ## [1.1.0] — 24/11/2026
 
