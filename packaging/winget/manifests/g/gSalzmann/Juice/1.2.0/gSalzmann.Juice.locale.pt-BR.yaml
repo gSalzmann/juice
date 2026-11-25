@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.6.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.28.0.schema.json
 PackageIdentifier: gSalzmann.Juice
 PackageVersion: 1.2.0
 PackageLocale: pt-BR
@@ -19,4 +19,4 @@ Tags:
 - headset
 - barra-de-tarefas
 ManifestType: locale
-ManifestVersion: 1.6.0
+ManifestVersion: 1.28.0
