@@ -38,7 +38,7 @@ BEGIN
     END
 END
 
-IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 360
+IDD_BAR_SETTINGS DIALOGEX 0, 0, 260, 374
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Juice — Configurações"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -51,26 +51,27 @@ BEGIN
     AUTOCHECKBOX    "Mostrar o último nível dos desconectados", IDC_SHOWLAST, 12, 114, 236, 10
     AUTOCHECKBOX    "Ler caixas de som JBL (Bluetooth LE)", IDC_JBL, 12, 128, 236, 10
     AUTOCHECKBOX    "Ler AirPods e fones Beats (Bluetooth LE)", IDC_APPLE, 12, 142, 236, 10
+    AUTOCHECKBOX    "Ler cada fone e o estojo dos Galaxy Buds", IDC_GALAXY, 12, 156, 236, 10
 
-    LTEXT           "ÍCONES", IDC_SEC_ICONS, 12, 164, 236, 9
-    AUTOCHECKBOX    "Percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 12, 182, 236, 10
-    AUTOCHECKBOX    "Colorir o número da bandeja pelo nível", IDC_COLORLEVELS, 12, 196, 236, 10
-    AUTOCHECKBOX    "Um ícone na bandeja para cada dispositivo", IDC_TRAYPERDEVICE, 12, 210, 236, 10
+    LTEXT           "ÍCONES", IDC_SEC_ICONS, 12, 178, 236, 9
+    AUTOCHECKBOX    "Percentual no ícone da barra de tarefas", IDC_SHOWNUMBER, 12, 196, 236, 10
+    AUTOCHECKBOX    "Colorir o número da bandeja pelo nível", IDC_COLORLEVELS, 12, 210, 236, 10
+    AUTOCHECKBOX    "Um ícone na bandeja para cada dispositivo", IDC_TRAYPERDEVICE, 12, 224, 236, 10
 
-    LTEXT           "ATUALIZAÇÃO E AVISOS", IDC_SEC_REFRESH, 12, 232, 236, 9
-    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 12, 252, 150, 9
-    EDITTEXT        IDC_INTERVAL, 190, 250, 34, 12, ES_NUMBER | ES_RIGHT
+    LTEXT           "ATUALIZAÇÃO E AVISOS", IDC_SEC_REFRESH, 12, 246, 236, 9
+    LTEXT           "Atualizar a cada", IDC_LBL_EVERY, 12, 266, 150, 9
+    EDITTEXT        IDC_INTERVAL, 190, 264, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_INTERVAL_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "min", IDC_LBL_MINUTES, 228, 252, 20, 9
-    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 12, 268, 176, 10
-    EDITTEXT        IDC_THRESHOLD, 190, 267, 34, 12, ES_NUMBER | ES_RIGHT
+    LTEXT           "min", IDC_LBL_MINUTES, 228, 266, 20, 9
+    AUTOCHECKBOX    "Avisar quando a bateria ficar abaixo de", IDC_LOWWARN, 12, 282, 176, 10
+    EDITTEXT        IDC_THRESHOLD, 190, 281, 34, 12, ES_NUMBER | ES_RIGHT
     CONTROL         "", IDC_THRESHOLD_SPIN, "msctls_updown32", UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS, 0, 0, 10, 12
-    LTEXT           "%", IDC_LBL_PERCENT, 228, 269, 20, 9
-    AUTOCHECKBOX    "Avisar quando terminar de carregar", IDC_FULLWARN, 12, 284, 236, 10
+    LTEXT           "%", IDC_LBL_PERCENT, 228, 283, 20, 9
+    AUTOCHECKBOX    "Avisar quando terminar de carregar", IDC_FULLWARN, 12, 298, 236, 10
 
-    LTEXT           "GERAL", IDC_SEC_GENERAL, 12, 304, 236, 9
-    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 12, 322, 236, 10
+    LTEXT           "GERAL", IDC_SEC_GENERAL, 12, 318, 236, 9
+    AUTOCHECKBOX    "Iniciar com o Windows (na bandeja)", IDC_AUTOSTART, 12, 336, 236, 10
 
-    DEFPUSHBUTTON   "OK", IDOK, 144, 340, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 198, 340, 50, 14
+    DEFPUSHBUTTON   "OK", IDOK, 144, 354, 50, 14
+    PUSHBUTTON      "Cancelar", IDCANCEL, 198, 354, 50, 14
 END

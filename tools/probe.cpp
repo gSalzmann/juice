@@ -12,7 +12,7 @@ static void LogLine(const wchar_t* s) { wprintf(L"%s\n", s); }
 int wmain() {
     _setmode(_fileno(stdout), _O_U8TEXT);
     auto devs = HidppScan(LogLine);
-    auto bts = BtBatteryScan(LogLine);
+    auto bts = BtBatteryScan(LogLine, true);
     auto bles = BleScan(true, true, LogLine);
     auto pads = PadsProbe(25000, LogLine);   // the controller reports its battery about every 20 s
     wprintf(L"\n=== %zu HID++ device(s), %zu Bluetooth device(s), %zu Bluetooth LE device(s) ===\n", devs.size(), bts.size(), bles.size());

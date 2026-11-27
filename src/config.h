@@ -15,15 +15,16 @@ struct Config {
     std::wstring barDevice;     // taskbar app: device key shown on the button ("" = lowest battery, "*" = rotate)
     bool showNumber   = true;   // taskbar app: % badge on the button icon
     bool showLast     = true;   // disconnected devices keep showing their last level (greyed out)
-    bool jbl          = false;
-    bool apple        = false;  // read AirPods / Beats from their Bluetooth LE advertisements  // read JBL speakers over Bluetooth LE (needs a short BLE scan per refresh)
+    bool jbl          = false;  // read JBL speakers over Bluetooth LE (needs a short BLE scan per refresh)
+    bool galaxy       = false;  // read each earbud of Galaxy Buds over their own Bluetooth channel (rarely, see btbattery.cpp)
+    bool apple        = false;  // read AirPods / Beats from their Bluetooth LE advertisements
     std::map<std::wstring, bool>         hidden;  // device key -> hidden
     std::map<std::wstring, std::wstring> known;   // device key -> last known name (for the settings list)
     std::map<std::wstring, std::wstring> kinds;   // device key -> last known kind ("mouse", "keyboard", "headset")
     std::map<std::wstring, std::wstring> slots;   // HID++ receiver slot / interface key -> device key (serial) seen there
-    std::map<std::wstring, std::wstring> aliases;
+    std::map<std::wstring, std::wstring> aliases; // Bluetooth key -> HID++ device key of the same physical device
     std::map<std::wstring, std::wstring> last;    // device key -> "percent,unix time" of the last reading
-    std::map<std::wstring, std::wstring> drain;   // device key -> "percent,unix time" where the current discharge began // Bluetooth key -> HID++ device key of the same physical device
+    std::map<std::wstring, std::wstring> drain;   // device key -> "percent,unix time" where the current discharge began
 
     void Load();
     void Save() const;

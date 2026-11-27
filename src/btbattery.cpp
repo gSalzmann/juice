@@ -1,4 +1,5 @@
 #include "btbattery.h"
+#include "galaxy.h"
 
 #include <windows.h>
 #include <initguid.h>
@@ -39,9 +40,12 @@ std::wstring GuidStr(const GUID& g) {
     return s;
 }
 
+constexpr ULONGLONG GALAXY_MIN_GAP_MS = 10ull * 60 * 1000;
+constexpr ULONGLONG GALAXY_MAX_AGE_MS = 30ull * 60 * 1000;
+
 }  // namespace
 
-std::vector<BtDeviceInfo> BtBatteryScan(void (*log)(const wchar_t*)) {
+std::vector<BtDeviceInfo> BtBatteryScan(void (*log)(const wchar_t*), bool galaxy) {
     struct Acc { BtDeviceInfo info; bool hasBattery = false; bool isBt = false; };
     std::map<std::wstring, Acc> byContainer;
 
@@ -59,6 +63,8 @@ std::vector<BtDeviceInfo> BtBatteryScan(void (*log)(const wchar_t*)) {
         GUID container{};
         if (!GetProp(set, dev, DEVPKEY_Device_ContainerId, container)) continue;
         Acc& a = byContainer[GuidStr(container)];
+        if (_wcsnicmp(id, GALAXY_SERVICE_PREFIX, wcslen(GALAXY_SERVICE_PREFIX)) == 0) a.info.galaxy = true;
+        if (_wcsnicmp(id, L"BTHENUM\\DEV_", 12) == 0) a.info.address = wcstoull(id + 12, nullptr, 16);
 
         BYTE level = 0;
         if (GetProp(set, dev, PKEY_BtBattery, level) && level <= 100) {
@@ -84,6 +90,46 @@ std::vector<BtDeviceInfo> BtBatteryScan(void (*log)(const wchar_t*)) {
     for (auto& [guid, a] : byContainer) {
         if (!a.isBt || !a.hasBattery) continue;
         a.info.key = L"bt:" + guid;
+        // Galaxy Buds: opening their channel over and over while they play audio froze a Buds2 once, so
+        // it is opened only when the level Windows reports changes, or every 30 minutes, and never twice
+        // within 10 minutes; in between the last reading is reused.
+        struct GalaxyCache { int winPercent = -1; ULONGLONG tick = 0; bool ok = false; GalaxyInfo info; };
+        static std::map<unsigned long long, GalaxyCache> cache;   // scans run one at a time
+        GalaxyInfo g;
+        bool haveGalaxy = false;
+        if (galaxy && a.info.galaxy && a.info.address) {
+            if (!a.info.connected) {
+                cache.erase(a.info.address);
+            } else {
+                const ULONGLONG now = GetTickCount64();
+                auto it = cache.find(a.info.address);
+                const bool due = it == cache.end() ||
+                                 (now - it->second.tick >= GALAXY_MIN_GAP_MS &&
+                                  (it->second.winPercent != a.info.percent || now - it->second.tick >= GALAXY_MAX_AGE_MS));
+                if (due) {
+                    GalaxyCache& c = cache[a.info.address];
+                    c.winPercent = a.info.percent;
+                    c.tick = now;
+                    c.ok = GalaxyRead(a.info.address, c.info, log);
+                    it = cache.find(a.info.address);
+                }
+                if (it->second.ok) { g = it->second.info; haveGalaxy = true; }
+            }
+        }
+        if (haveGalaxy) {
+            // One value for the row: the earbud that runs out first (as with AirPods).
+            int low = -1;
+            bool allCharging = true;
+            for (int i = 0; i < 3; ++i) {
+                a.info.parts[i] = g.parts[i];
+                a.info.partCharging[i] = g.partCharging[i];
+                if (i < 2 && g.parts[i] >= 0) {
+                    if (low < 0 || g.parts[i] < low) low = g.parts[i];
+                    allCharging &= g.partCharging[i];
+                }
+            }
+            if (low >= 0) { a.info.percent = low; a.info.charging = allCharging; }
+        }
         if (log) {
             wchar_t line[400];
             swprintf_s(line, L"bt %s \"%s\" connected=%d battery=%d%% class=%d/%d", guid.c_str(),

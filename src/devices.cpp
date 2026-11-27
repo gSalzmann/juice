@@ -32,13 +32,13 @@ Kind KindFromBt(int major, int minor) {
 const wchar_t* const KIND_NAMES[] = { L"mouse", L"keyboard", L"headset", L"speaker", L"gamepad" };   // Kind order
 constexpr int KIND_COUNT = sizeof(KIND_NAMES) / sizeof(KIND_NAMES[0]);
 
-struct ThreadArgs { HWND hwnd; UINT msg; bool jbl, apple; };
+struct ThreadArgs { HWND hwnd; UINT msg; bool jbl, apple, galaxy; };
 
 DWORD WINAPI ScanThread(LPVOID p) {
     std::unique_ptr<ThreadArgs> a((ThreadArgs*)p);
     auto* r = new ScanResult;
     r->hid = HidppScan();
-    r->bt  = BtBatteryScan();
+    r->bt  = BtBatteryScan(nullptr, a->galaxy);
     if (a->jbl || a->apple) r->ble = BleScan(a->jbl, a->apple);
     if (!PostMessageW(a->hwnd, a->msg, 0, (LPARAM)r)) delete r;
     return 0;
@@ -176,7 +176,7 @@ void DeviceManager::StartScan(HWND notify, UINT msg) {
     msg_ = msg;
     if (scanning_) { rescan_ = true; return; }
     scanning_ = true;
-    auto* args = new ThreadArgs{ notify, msg, cfg_.jbl, cfg_.apple };
+    auto* args = new ThreadArgs{ notify, msg, cfg_.jbl, cfg_.apple, cfg_.galaxy };
     HANDLE t = CreateThread(nullptr, 256 * 1024, ScanThread, args, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
     if (t) CloseHandle(t);
     else { delete args; scanning_ = false; }
@@ -282,7 +282,8 @@ void DeviceManager::OnScanDone(ScanResult* raw) {
         if (Kind k = KindFromBt(b.majorClass, b.minorClass); k != Kind::Other) d.kind = k;
         d.asleep = false;
         d.present = b.connected && b.percent >= 0;
-        if (d.present) { d.percent = b.percent; d.charging = false; d.lastGood = now; }
+        if (d.present) { d.percent = b.percent; d.charging = b.charging; d.lastGood = now; }
+        for (int i = 0; i < 3; ++i) { d.parts[i] = b.parts[i]; d.partCharging[i] = b.partCharging[i]; }
         remember(d);
     }
     for (auto& j : r->ble) {   // JBL speakers and Apple earbuds

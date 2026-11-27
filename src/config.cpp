@@ -76,6 +76,7 @@ void Config::Load() {
     trayPerDevice = GetPrivateProfileIntW(L"general", L"tray_per_device", 0, ini.c_str()) != 0;
     fullWarning  = GetPrivateProfileIntW(L"general", L"full_warning", 1, ini.c_str()) != 0;
     apple        = GetPrivateProfileIntW(L"general", L"apple", 0, ini.c_str()) != 0;
+    galaxy       = GetPrivateProfileIntW(L"general", L"galaxy", 0, ini.c_str()) != 0;
     hidden.clear();
     known.clear();
     kinds.clear();
@@ -105,6 +106,7 @@ void Config::Save() const {
     WritePrivateProfileStringW(L"general", L"tray_per_device", trayPerDevice ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"full_warning", fullWarning ? L"1" : L"0", ini.c_str());
     WritePrivateProfileStringW(L"general", L"apple", apple ? L"1" : L"0", ini.c_str());
+    WritePrivateProfileStringW(L"general", L"galaxy", galaxy ? L"1" : L"0", ini.c_str());
 
     std::wstring body;
     for (auto& [k, v] : hidden) if (v) { body += k + L"=1"; body.push_back(L'\0'); }

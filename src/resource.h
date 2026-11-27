@@ -21,5 +21,6 @@
 #define IDC_SEC_GENERAL     1020
 #define IDC_LBL_PERCENT     1021
 #define IDC_APPLE           1022
+#define IDC_GALAXY          1025
 #define IDC_FULLWARN        1023
 #define IDC_TRAYPERDEVICE   1024
