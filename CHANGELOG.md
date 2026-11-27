@@ -4,6 +4,13 @@
 
 All notable changes to Juice. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Galaxy Buds: each earbud and the case** (Buds+ and later), read from the earbuds' own channel: one row with
+  the earbud that runs out first, each earbud and the case in the status (optional, off by default; the channel
+  is opened at most every 10 minutes). Tested with the Galaxy Buds2.
+
 ## [1.2.0] — 2026-11-25
 
 ### Added
@@ -62,6 +69,13 @@ device, English and Portuguese.
 ## 🇧🇷 Português
 
 Todas as mudanças relevantes do Juice. As versões seguem o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
+
+## [Não lançado]
+
+### Novidades
+- **Galaxy Buds: cada fone e o estojo** (Buds+ e mais novos), pelo canal próprio dos fones: uma linha com o fone
+  que acaba primeiro, cada fone e o estojo no status (opcional, desligado por padrão; o canal é aberto no máximo a
+  cada 10 minutos). Testado com o Galaxy Buds2.
 
 ## [1.2.0] — 25/11/2026
 

@@ -123,6 +123,7 @@ Abrir o `Juice.exe` de novo com ele já rodando apenas traz a janela existente d
 |---|---|---|
 | **Logitech HID++ 2.0** — receptores LIGHTSPEED, Unifying e Bolt, Bluetooth e USB direto | features `0x1004` (UnifiedBattery), `0x1000`, `0x1001` (tensão → %) e `0x1F20` (headsets) | G502 X PLUS (LIGHTSPEED), G309 (LIGHTSPEED e Bluetooth), G933 |
 | **Fones e headsets Bluetooth** que informam a bateria ao Windows (HFP) | propriedade de bateria que o próprio stack Bluetooth do Windows expõe | Galaxy Buds2, Galaxy Buds3 Pro |
+| **Galaxy Buds: cada fone e o estojo** *(opcional, desligado por padrão)* — Buds+ e mais novos | o canal próprio dos fones (o mesmo que o app Galaxy Wearable usa), que envia cada fone e o estojo logo que é aberto ([protocolo do GalaxyBudsClient](https://github.com/timschneeb/GalaxyBudsClient)) | Galaxy Buds2 |
 | **Caixas de som JBL** *(opcional, desligado por padrão)* | serviço de controle Bluetooth LE da JBL — o mesmo do app JBL Portable ([protocolo do JBLControl](https://github.com/ffrafat/JBLControl)) | JBL Flip 7 |
 | **Controle Xbox Wireless** pelo Bluetooth | o relatório de bateria que o controle envia sozinho a cada ~20 s (4 níveis: 10/40/70/100%) | controle do Xbox One S |
 | **Controles PlayStation** pelo Bluetooth — DualSense, DualSense Edge, DualShock 4 | o campo de bateria do relatório completo do controle (layout do `hid-playstation` do Linux e do SDL) | *ainda não testado* |
@@ -140,7 +141,10 @@ modelo nunca misturam seus dispositivos.
 conectado à caixa, o Juice não consegue ler. **Controles de Xbox** só enviam a bateria a cada ~20 s, então logo
 depois de conectar pode levar esse tempo para aparecer. **AirPods** aparecem numa linha com o fone que acaba
 primeiro; como os AirPods de qualquer pessoa por perto anunciam do mesmo jeito, o Juice só aceita sinais fortes
-(perto do PC) e o par mais próximo de cada modelo, e os níveis vêm de 10 em 10%. Caixas de som que não informam
+(perto do PC) e o par mais próximo de cada modelo, e os níveis vêm de 10 em 10%. **Galaxy Buds** por fone: abrir o canal deles muitas vezes seguidas enquanto tocavam áudio travou um
+Buds2 uma vez (voltou ao guardar os fones no estojo), então o Juice só abre o canal quando o nível que o Windows
+informa muda ou a cada 30 minutos, nunca duas vezes em menos de 10 minutos; um teste de 30 minutos ouvindo áudio
+não teve problemas. O nível do estojo só é conhecido com um fone dentro dele. Caixas de som que não informam
 a bateria ao Windows e não têm protocolo conhecido simplesmente não aparecem.
 
 **Dispositivos que dormem:** mouses Logitech parados entram em repouso e param de responder. O Juice mantém
@@ -160,6 +164,7 @@ Clique em **Configurações** na janela ou no menu da bandeja. A tela segue o te
 | | Lista de dispositivos | todos marcados | Desmarque para esconder um dispositivo da janela, da barra e da bandeja |
 | | Mostrar o último nível dos desconectados | ligado | Mantém a última leitura em cinza, com há quanto tempo foi lida |
 | | Ler caixas de som JBL (Bluetooth LE) | desligado | Escuta por ~5 s a cada atualização e conecta nas caixas para ler o nível (~2 MB a mais de memória) |
+| | Ler cada fone e o estojo dos Galaxy Buds | desligado | Abre por um instante o canal próprio dos fones, no máximo a cada 10 minutos (veja acima) |
 | | Ler AirPods e fones Beats (Bluetooth LE) | desligado | Lê pelos anúncios, na mesma janela de escuta (~2 MB a mais de memória) |
 | Ícones | Percentual no ícone da barra de tarefas | ligado | Liga/desliga o selo com o número |
 | | Colorir o número da bandeja pelo nível | desligado | Azul / laranja / vermelho em vez da cor neutra |
@@ -223,6 +228,7 @@ src/
   hidpp.*        protocolo Logitech HID++ 2.0 sobre HID do Windows
   btbattery.*    bateria de dispositivos Bluetooth via propriedades do sistema
   ble.*          Bluetooth LE: caixas JBL e AirPods/Beats (C++/WinRT)
+  galaxy.*       Galaxy Buds: cada fone e o estojo pelo canal próprio deles (C++/WinRT)
   pads.*         controles de Xbox e PlayStation: leitor em segundo plano dos relatórios de bateria
   illust.*       renderizador SDF: ilustrações, selos e barras da janela
   icon.*         ícones da bandeja (glifo + dígitos 4×6)
@@ -237,14 +243,14 @@ docs/img/        imagens deste README
 
 Se um dispositivo não aparecer, rode `build\probe.exe` com ele ligado. A saída mostra cada receptor e slot
 encontrado, as features HID++ usadas e o resultado da leitura — por exemplo `no response (asleep?)` para um
-mouse em repouso, ou o erro devolvido por um headset desligado. Ele também procura caixas JBL e AirPods/Beats,
+mouse em repouso, ou o erro devolvido por um headset desligado. Ele também lê cada fone dos Galaxy Buds conectados, procura caixas JBL e AirPods/Beats,
 e espera até 25 s pelo relatório de bateria dos controles.
 
 ## Privacidade
 
 O Juice não acessa a internet, não coleta nada e não instala serviços. Ele só conversa com os seus
 dispositivos pelas APIs HID e Bluetooth do próprio Windows e grava um arquivo `.ini` na sua pasta de usuário.
-Ele só escuta anúncios Bluetooth LE quando a opção da JBL ou dos AirPods está ligada, e só se conecta a caixas JBL.
+Ele só escuta anúncios Bluetooth LE quando a opção da JBL ou dos AirPods está ligada, e só se conecta a caixas JBL, e aos Galaxy Buds quando a opção deles está ligada.
 
 ## Histórico e próximos passos
 

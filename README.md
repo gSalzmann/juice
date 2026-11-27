@@ -122,6 +122,7 @@ Launching `Juice.exe` again while it is running just brings the existing window 
 |---|---|---|
 | **Logitech HID++ 2.0** — LIGHTSPEED, Unifying and Bolt receivers, Bluetooth and direct USB | features `0x1004` (UnifiedBattery), `0x1000`, `0x1001` (voltage → %) and `0x1F20` (headsets) | G502 X PLUS (LIGHTSPEED), G309 (LIGHTSPEED and Bluetooth), G933 |
 | **Bluetooth headsets and earbuds** that report battery to Windows (HFP) | the battery property exposed by the Windows Bluetooth stack itself | Galaxy Buds2, Galaxy Buds3 Pro |
+| **Galaxy Buds: each earbud and the case** *(optional, off by default)* — Buds+ and later | the earbuds' own channel (the one the Galaxy Wearable app uses), which sends each earbud and the case right after it opens ([protocol by GalaxyBudsClient](https://github.com/timschneeb/GalaxyBudsClient)) | Galaxy Buds2 |
 | **JBL speakers** *(optional, off by default)* | JBL's Bluetooth LE control service — the same one the JBL Portable app uses ([protocol by JBLControl](https://github.com/ffrafat/JBLControl)) | JBL Flip 7 |
 | **Xbox Wireless Controller** over Bluetooth | the battery report the controller sends by itself about every 20 s (4 steps: 10/40/70/100%) | Xbox One S controller |
 | **PlayStation controllers** over Bluetooth — DualSense, DualSense Edge, DualShock 4 | the battery field of the controller's full input report (layout from Linux `hid-playstation` and SDL) | *not tested yet* |
@@ -139,7 +140,10 @@ mix up their devices.
 connected to the speaker, Juice can't read it. **Xbox controllers** only send their battery every ~20 s, so
 right after one connects it can take that long to show up. **AirPods** are shown as one row with the earbud
 that runs out first; since anyone's AirPods nearby advertise the same way, Juice only takes strong signals
-(close to the PC) and the closest pair of each model, and the levels come in steps of 10%. Speakers that don't
+(close to the PC) and the closest pair of each model, and the levels come in steps of 10%. **Galaxy Buds** per earbud: opening their channel many times in a row while they played audio froze a Buds2
+once (putting them back in the case fixed it), so Juice opens it only when the level Windows reports changes
+or every 30 minutes, never twice within 10 minutes; a 30-minute listening test had no issues. The case level
+is only known while an earbud is in it. Speakers that don't
 report battery to Windows and have no known protocol simply don't appear.
 
 **Sleeping devices:** idle Logitech mice go to sleep and stop answering. Juice keeps the last value for up to
@@ -158,6 +162,7 @@ Open **Settings** from the window or the tray menu. The screen follows the Windo
 | | Device list | all checked | Uncheck to hide a device from the window, the taskbar and the tray |
 | | Show the last level of disconnected devices | on | Keeps the last reading in grey, with how long ago it was read |
 | | Read JBL speakers (Bluetooth LE) | off | Listens for ~5 s on each refresh and connects to the speakers to read the level (~2 MB more memory) |
+| | Read each earbud and the case of Galaxy Buds | off | Opens the earbuds' own channel for a moment, at most every 10 minutes (see above) |
 | | Read AirPods and Beats earbuds (Bluetooth LE) | off | Reads them from their advertisements during the same listening window (~2 MB more memory) |
 | Icons | Percentage on the taskbar icon | on | Turns the number badge on/off |
 | | Color the tray number by level | off | Blue / orange / red instead of the neutral color |
@@ -221,6 +226,7 @@ src/
   hidpp.*        Logitech HID++ 2.0 protocol over Windows HID
   btbattery.*    Bluetooth battery through system device properties
   ble.*          Bluetooth LE: JBL speakers and AirPods/Beats (C++/WinRT)
+  galaxy.*       Galaxy Buds: each earbud and the case over their own channel (C++/WinRT)
   pads.*         Xbox and PlayStation controllers: background reader for their battery reports
   illust.*       SDF renderer: illustrations, badges and window bars
   icon.*         tray icons (glyph + 4×6 digits)
@@ -235,14 +241,14 @@ docs/img/        images used in this README
 
 If a device does not show up, run `build\probe.exe` with it turned on. The output lists every receiver and
 slot found, the HID++ features in use and the result of each reading — for example `no response (asleep?)`
-for a sleeping mouse, or the error returned by a headset that is turned off. It also listens for JBL speakers
-and AirPods/Beats, and waits up to 25 s for the battery report of game controllers.
+for a sleeping mouse, or the error returned by a headset that is turned off. It also reads each earbud of connected Galaxy Buds, listens for JBL
+speakers and AirPods/Beats, and waits up to 25 s for the battery report of game controllers.
 
 ## Privacy
 
 Juice never touches the internet, collects nothing and installs no services. It only talks to your devices
 through the Windows HID and Bluetooth APIs and writes one `.ini` file in your user folder. It only listens
-for Bluetooth LE advertisements when the JBL or AirPods option is on, and only connects to JBL speakers.
+for Bluetooth LE advertisements when the JBL or AirPods option is on, and only connects to JBL speakers, and to Galaxy Buds when their option is on.
 
 ## Changelog and roadmap
 
